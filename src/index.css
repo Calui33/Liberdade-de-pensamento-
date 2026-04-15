@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand-red: #8b0000;
+  --color-brand-red-light: #ff0000;
+  --color-bg-dark: #0a0a0a;
+  --color-card-dark: #141414;
+
+  --animate-voice-pulse: voice-pulse 2s ease-in-out infinite;
+  --animate-mic-ring: mic-ring 1.5s ease-out infinite;
+
+  @keyframes voice-pulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(168, 85, 247, 0)); }
+    50% { transform: scale(1.1); filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.6)); }
+  }
+
+  @keyframes mic-ring {
+    0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    100% { transform: scale(1.5); opacity: 0; box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-bg-dark text-gray-300 font-sans antialiased;
+  }
+}
+
+.glow-red {
+  box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+}
+
+/* Markdown Styles */
+.prose-sm h1 { @apply text-xl font-bold mb-4 text-white; }
+.prose-sm h2 { @apply text-lg font-bold mb-3 text-white; }
+.prose-sm h3 { @apply text-base font-bold mb-2 text-white; }
+.prose-sm p { @apply mb-4 last:mb-0; }
+.prose-sm ul { @apply list-disc list-inside mb-4; }
+.prose-sm ol { @apply list-decimal list-inside mb-4; }
+.prose-sm code { @apply bg-white/10 px-1.5 py-0.5 rounded font-mono text-amber-400; }
+.prose-sm pre { @apply bg-black/50 p-4 rounded-xl border border-white/10 mb-4 overflow-x-auto; }
+.prose-sm pre code { @apply bg-transparent p-0 text-gray-300; }
+.prose-sm strong { @apply text-amber-500 font-bold; }
+.prose-sm blockquote { @apply border-l-4 border-amber-500/50 pl-4 italic text-gray-400 mb-4; }

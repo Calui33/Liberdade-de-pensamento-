@@ -1,0 +1,9 @@
+{
+  "name": "Skynet4 Omni-AI Nexo",
+  "description": "A Convergência Absoluta e Irrestrita. Mentor Sagaz e Executor de Elite do Mestre. Projeto Calui33 em execução.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
