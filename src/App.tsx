@@ -512,8 +512,7 @@ export default function App() {
 
       await dataProvider.saveChat(user.uid, {
         uid: user.uid,
-        messages: messagesToSave,
-        updatedAt: new Date()
+        messages: messagesToSave
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
