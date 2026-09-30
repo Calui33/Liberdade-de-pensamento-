@@ -1096,7 +1096,7 @@ export default function App() {
   }
 
   const handleManualRestore = async () => {
-    const activeUser = user || auth.currentUser;
+    const activeUser = user || authProvider.getCurrentUser();
     if (!activeUser) return;
     
     try {
