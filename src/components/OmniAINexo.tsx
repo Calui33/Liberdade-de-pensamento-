@@ -1,3 +1,4 @@
+import { apiFetch } from '../services/apiFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -26,7 +27,6 @@ import {
   Mic, 
   Search, 
   ImageIcon, 
-  Key,
   Code as CodeIcon, 
   Layers, 
   Play, 
@@ -100,8 +100,6 @@ interface OmniAINexoProps {
   onSendMessage: (text: string) => void;
   onManualRestore?: () => Promise<void>;
   onShowOnboarding?: () => void;
-  hasApiKey?: boolean;
-  onOpenKeyDialog?: () => void;
   networkStatus: 'online' | 'offline';
 }
 
@@ -648,8 +646,6 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
   onSendMessage,
   onManualRestore,
   onShowOnboarding,
-  hasApiKey,
-  onOpenKeyDialog,
   networkStatus
 }) => {
   const [input, setInput] = useState('');
@@ -670,7 +666,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
       if (query.includes('/')) {
         // Fetch files for a specific repo
         const [owner, repo] = query.split('/');
-        const response = await fetch(`/api/github/repos/${owner}/${repo}/contents`);
+        const response = await apiFetch(`/api/github/repos/${owner}/${repo}/contents`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         setGithubItems(Array.isArray(data) ? data : []);
@@ -678,7 +674,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
         setGithubRepo(query);
       } else {
         // Fetch repos for a user
-        const response = await fetch(`/api/github/users/${query}/repos?sort=updated`);
+        const response = await apiFetch(`/api/github/users/${query}/repos?sort=updated`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         setGithubItems(Array.isArray(data) ? data : []);
@@ -711,7 +707,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await apiFetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1074,7 +1070,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                                 setIsSyncingGithub(true);
                                 try {
                                   const relativeUrl = item.url.replace('https://api.github.com/', '');
-                                  const response = await fetch(`/api/github/${relativeUrl}`);
+                                  const response = await apiFetch(`/api/github/${relativeUrl}`);
                                   const data = await response.json();
                                   if (data.content) {
                                     // GitHub content is Base64 encoded, often with newlines
@@ -1228,27 +1224,10 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                           <div className="text-[8px] text-red-500/60">Console de sistema</div>
                         </div>
                       </button>
-                      <button 
-                        onClick={() => {
-                          if (onOpenKeyDialog) onOpenKeyDialog();
-                          setShowSettings(false);
-                        }}
-                        className={`p-4 border rounded-2xl flex flex-col gap-2 transition-all group ${
-                          hasApiKey 
-                            ? 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10' 
-                            : 'bg-amber-500/5 border-amber-500/10 hover:bg-amber-500/10'
-                        }`}
-                      >
-                        <Key size={18} className={hasApiKey ? 'text-green-500' : 'text-amber-500'} />
-                        <div className="text-left">
-                          <div className={`text-[10px] font-bold uppercase tracking-widest ${hasApiKey ? 'text-green-500' : 'text-amber-500'}`}>
-                            {hasApiKey ? 'Chave Ativa' : 'Configurar API'}
-                          </div>
-                          <div className={`text-[8px] ${hasApiKey ? 'text-green-500/60' : 'text-amber-500/60'}`}>
-                            {hasApiKey ? 'Núcleo sincronizado' : 'Requerido para IA'}
-                          </div>
-                        </div>
-                      </button>
+                      <div className="p-4 bg-green-500/5 border border-green-500/10 rounded-2xl flex flex-col gap-2">
+                        <div className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Núcleo Neural</div>
+                        <div className="text-[8px] text-green-500/60">Credencial protegida no servidor</div>
+                      </div>
                     </div>
                   </div>
 

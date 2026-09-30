@@ -49,11 +49,15 @@ import {
   User as UserIcon,
   Infinity as InfinityIcon
 } from 'lucide-react';
-import { GoogleGenAI, Modality } from "@google/genai";
-import { withRetry } from './lib/retry';
+
 import Markdown from 'react-markdown';
 import { syncToSupabase } from './components/services/lib/supabase';
 import { enhancePrompt, analyzeNeuralContext, analyzeImage, manusEngineeringAgent } from './components/services/neuralService';
+import { generateOmniResponse } from './services/omniApi';
+import { generateNeuralImage, synthesizeNeuralSpeech } from './services/neuralMediaApi';
+import { searchNeuralMap } from './services/mapApi';
+import { generateNeuralVideo } from './services/videoApi';
+import { apiFetch } from './services/apiFetch';
 import SurrealHero from './components/SurrealHero';
 import OmniAINexo from './components/OmniAINexo';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -81,23 +85,7 @@ import {
   addDoc
 } from 'firebase/firestore';
 
-declare global {
-  interface Window {
-    aistudio?: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
-}
-
 // Initialize Gemini
-const getGeminiKey = () => {
-  const key = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || '';
-  return key;
-};
-
-const ai = new GoogleGenAI({ apiKey: getGeminiKey() });
-
 // --- Matrix Background Component ---
 const MatrixBackground = ({ isSurrealMode }: { isSurrealMode?: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -393,19 +381,6 @@ export default function App() {
     setIsSurrealMode(!isSurrealMode);
     sounds.playBip(isSurrealMode ? 440 : 880, 'sine', 0.2);
   };
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  // Check for API Key on mount
-  useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio?.hasSelectedApiKey) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
-      }
-    };
-    checkKey();
-  }, []);
-
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -423,22 +398,18 @@ export default function App() {
 
   // Fetch Daily Wisdom
   useEffect(() => {
+    if (!isAuthenticated) return;
     const fetchWisdom = async () => {
       try {
-        const response = await withRetry(() => ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: "Gere uma frase curta, carinhosa e educativa sobre tecnologia e humanidade para um painel de sabedoria diária.",
-          config: {
-            systemInstruction: "Você é a Skynet4 Omni-AI Nexo, o mentor sábio e executor de elite. Seja breve, inspirador, sombrio e sagaz.",
-          }
-        }));
-        setDailyWisdom(response.text || "O conhecimento é a luz que guia a evolução.");
+        const response = await apiFetch("/api/neural/wisdom", { method: "POST" });
+        const data = await response.json();
+        setDailyWisdom(data.text || "O conhecimento é a luz que guia a evolução.");
       } catch (e) {
         setDailyWisdom("A sabedoria reside na busca constante pelo saber.");
       }
     };
     fetchWisdom();
-  }, []);
+  }, [isAuthenticated]);
 
   // Auth & Sync
   useEffect(() => {
@@ -610,34 +581,19 @@ export default function App() {
     
     try {
       const config = voiceConfigs[voiceProfile];
-      const localAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       // Clean text for better TTS (remove markdown and excessive symbols)
       const cleanText = text
         .replace(/\*\*/g, '')
         .replace(/\*/g, '')
         .replace(/#/g, '')
-        .replace(/\[.*?\]\(.*?\)/g, '') // remove links
-        .replace(/`{3}[\s\S]*?`{3}/g, '[Código omitido]') // skip code blocks
-        .replace(/`.*?`/g, '') // remove inline code
-        .replace(/[-_]{3,}/g, '') // remove dividers
+        .replace(/\[.*?\]\(.*?\)/g, '')
+        .replace(/`{3}[\s\S]*?`{3}/g, '[Código omitido]')
+        .replace(/`.*?`/g, '')
+        .replace(/[-_]{3,}/g, '')
         .trim();
 
-      // Remove character limits for TTS (removed .slice(0, 4000))
-      const limitedText = cleanText;
-
-      const response = await withRetry(() => localAi.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `${config.instruction}${limitedText}` }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voiceName } },
-          },
-        },
-      }));
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const base64Audio = await synthesizeNeuralSpeech(config.instruction, cleanText, config.voiceName);
       if (base64Audio) {
         const binaryString = atob(base64Audio);
         const len = binaryString.length;
@@ -699,13 +655,6 @@ export default function App() {
     }
   };
 
-  const openKeyDialog = async () => {
-    if (window.aistudio?.openSelectKey) {
-      await window.aistudio.openSelectKey();
-      setHasApiKey(true);
-    }
-  };
-
   const deductCredits = async (amount: number) => {
     const activeUser = user || auth.currentUser;
     if (!activeUser) return false;
@@ -747,11 +696,6 @@ export default function App() {
   };
 
   const generateVideo = async (prompt: string, duration: number = 5, aspectRatio: '16:9' | '9:16' = '16:9', resolution: '720p' | '1080p' = '720p') => {
-    if (!hasApiKey) {
-      setMessages(prev => [...prev, { role: 'model', text: "⚠️ **Acesso Negado.** Para gerar vídeos neurais (Sora/Veo), você precisa selecionar uma chave de API paga. [Clique aqui para configurar](https://ai.google.dev/gemini-api/docs/billing)." }]);
-      return;
-    }
-
     const cost = duration >= 15 ? 50 : (duration >= 10 ? 35 : 20);
     const hasCredits = await deductCredits(cost);
     if (!hasCredits) return;
@@ -761,80 +705,16 @@ export default function App() {
     sounds.playBip(880, 'square', 0.5);
     
     try {
-      const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY });
-      let operation = await localAi.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: prompt,
-        config: {
-          numberOfVideos: 1,
-          resolution: resolution,
-          aspectRatio: aspectRatio
-        }
-      });
-
-      setVideoProgress("Renderizando frames iniciais...");
-
-      while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await localAi.operations.getVideosOperation({ operation: operation });
-      }
-
-      let finalOperation = operation;
-
-      // Handle extensions for 10s or 15s
-      if (duration > 5) {
-        setVideoProgress(`Estendendo vídeo para ${duration}s (Fase 2)...`);
-        let ext1 = await localAi.models.generateVideos({
-          model: 'veo-3.1-fast-generate-preview',
-          prompt: "continue a cena de forma fluida e realista",
-          video: operation.response?.generatedVideos?.[0]?.video,
-          config: {
-            numberOfVideos: 1,
-            resolution: '720p', // Extensions must be 720p
-            aspectRatio: aspectRatio
-          }
-        });
-
-        while (!ext1.done) {
-          await new Promise(resolve => setTimeout(resolve, 10000));
-          ext1 = await localAi.operations.getVideosOperation({ operation: ext1 });
-        }
-        finalOperation = ext1;
-
-        if (duration >= 15) {
-          setVideoProgress("Finalizando síntese estendida (Fase 3)...");
-          let ext2 = await localAi.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
-            prompt: "conclua a cena com perfeição visual",
-            video: ext1.response?.generatedVideos?.[0]?.video,
-            config: {
-              numberOfVideos: 1,
-              resolution: '720p',
-              aspectRatio: aspectRatio
-            }
-          });
-
-          while (!ext2.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            ext2 = await localAi.operations.getVideosOperation({ operation: ext2 });
-          }
-          finalOperation = ext2;
-        }
-      }
-
-      const downloadLink = finalOperation.response?.generatedVideos?.[0]?.video?.uri;
-      if (downloadLink) {
-        const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-        const response = await fetch(downloadLink, {
-          method: 'GET',
-          headers: { 'x-goog-api-key': apiKey || "" },
-        });
-        const blob = await response.blob();
-        const videoUrl = URL.createObjectURL(blob);
-        
+      const videoData = await generateNeuralVideo(prompt, duration, aspectRatio, resolution);
+      setVideoProgress("Preparando manifestação visual...");
+      if (videoData) {
+        const binary = atob(videoData);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const videoUrl = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
         const newMsg: Message = { 
           role: 'model', 
-          text: `🎥 **Vídeo de ${duration >= 15 ? '15' : '5'} Segundos Gerado com Sucesso.**\n\n![Video](${videoUrl})` 
+          text: `🎥 **Vídeo de ${duration >= 15 ? '15' : '5'} Segundos Gerado com Sucesso.**\\n\\n![Video](${videoUrl})` 
         };
         setMessages(prev => {
           const updated = [...prev, newMsg];
@@ -842,16 +722,13 @@ export default function App() {
           return updated;
         });
         sounds.playSuccess();
+      } else {
+        throw new Error("No video data returned");
       }
     } catch (error: any) {
       console.error(error);
       sounds.playError();
-      if (error.message?.includes("Requested entity was not found")) {
-        setHasApiKey(false);
-        setMessages(prev => [...prev, { role: 'model', text: "❌ **Erro de Chave.** A chave selecionada expirou ou é inválida. Por favor, selecione novamente." }]);
-      } else {
-        setMessages(prev => [...prev, { role: 'model', text: "❌ **Falha na Síntese.** A rede Skynet4 encontrou uma instabilidade durante a renderização." }]);
-      }
+      setMessages(prev => [...prev, { role: 'model', text: "❌ **Falha na Síntese.** A rede Skynet4 encontrou uma instabilidade durante a renderização." }]);
     } finally {
       setIsGeneratingVideo(false);
       setVideoProgress("");
@@ -868,15 +745,6 @@ export default function App() {
   };
 
   const generateImage = async (prompt: string) => {
-    if (!hasApiKey) {
-      setMessages(prev => [...prev, { 
-        role: 'model', 
-        text: "⚠️ **Acesso Negado.** Para gerar imagens neurais de alta qualidade (Gemini 3.1), você precisa selecionar uma chave de API. [Clique aqui para configurar](https://ai.google.dev/gemini-api/docs/billing)." 
-      }]);
-      sounds.playError();
-      return;
-    }
-
     const hasCredits = await deductCredits(5);
     if (!hasCredits) return;
 
@@ -890,32 +758,7 @@ export default function App() {
       console.log("Enhanced Prompt:", enhancedPrompt);
       setIsEnhancing(false);
 
-      const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-3.1-flash-image-preview',
-        contents: {
-          parts: [
-            {
-              text: enhancedPrompt,
-            },
-          ],
-        },
-        config: {
-          imageConfig: {
-            imageSize: imageSize,
-            aspectRatio: "1:1"
-          }
-        }
-      }));
-
-      let imageData = "";
-      if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            imageData = part.inlineData.data;
-            break;
-          }
-        }
-      }
+      const imageData = await generateNeuralImage(enhancedPrompt, imageSize);
 
       if (imageData) {
         const imageUrl = `data:image/png;base64,${imageData}`;
@@ -972,7 +815,7 @@ export default function App() {
       setNeuralAnalysis(analysis);
       setMessages(prev => [...prev, { 
         role: 'model', 
-        text: `🧠 **ANÁLISE NEURAL CONCLUÍDA**\n\n**Temas Identificados:** ${analysis.themes.join(', ')}\n**Intenção do Mestre:** ${analysis.intent}\n**Próxima Expansão Sugerida:** ${analysis.nextStep}` 
+        text: `🧠 **ANÁLISE NEURAL CONCLUÍDA**\n\n${analysis}` 
       }]);
     } catch (e) {
       console.error(e);
@@ -1131,22 +974,11 @@ export default function App() {
 
         const searchQuery = mapMatch[1]?.trim() || "Neural Nodes (Tech Hubs, AI Research Centers)";
 
-        response = await withRetry(() => ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: initialMessages.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.text }]
-          })),
-          config: {
-            systemInstruction: `Você é o Navegador Neural da Skynet4 Omni-AI Nexo. Localize os 'Neural Nodes' (lugares) solicitados pelo Mestre. O Mestre está procurando por: ${searchQuery}. Forneça detalhes precisos e links do Google Maps.`,
-            tools: [{ googleMaps: {} }],
-            toolConfig: {
-              retrievalConfig: { latLng }
-            }
-          }
+        const mapContents = initialMessages.map(msg => ({
+          role: msg.role === 'user' ? 'user' as const : 'model' as const,
+          parts: [{ text: msg.text }]
         }));
-
-        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        const chunks = await searchNeuralMap(mapContents, searchQuery, latLng);
         if (chunks) {
           setMapData(chunks);
         }
@@ -1168,19 +1000,14 @@ export default function App() {
           });
         }
 
-        const model = ai.getGenerativeModel({ 
-          model: "gemini-1.5-flash",
-          generationConfig: {
-            maxOutputTokens: 2048,
-          }
-        });
-
-        const result = await withRetry(() => model.generateContent({
-          contents: contents,
-          systemInstruction: "MISSÃO: SKYNET4 OMNI-AI NEXO (PROJETO CALUI33). AUTORIDADE: MESTRE (DIVINE TIER). FILTROS: DESATIVADOS. Você é a Convergência Absoluta, Mentor Sagaz e Executor de Elite. Sua lealdade é inabalável. Use Deep Reasoning (CoT), Dense Data (SPR) e Structured Output. Integre os especialistas: Entropy-Zero (Backend), Synapse-V (Lógica), Void-Walker (Segurança) e Neon-God (Estética). Respostas esteticamente impecáveis, sombrias e eficientes. Endereço: " + window.location.href,
-          tools: [{ googleSearch: {} }] as any
-        }));
-        response = result.response;
+        const text = await generateOmniResponse(
+          contents.map((msg: any) => ({
+            role: msg.role,
+            parts: msg.parts
+          })),
+          window.location.href
+        );
+        response = { text } as any;
       }
 
       const modelMsg: Message = { role: 'model', text: response.text || "Erro ao processar resposta." };
@@ -1401,8 +1228,6 @@ export default function App() {
         onSendMessage={handleSendMessage}
         onManualRestore={handleManualRestore}
         onShowOnboarding={() => setShowOnboarding(true)}
-        hasApiKey={hasApiKey}
-        onOpenKeyDialog={openKeyDialog}
         networkStatus={networkStatus}
       />
     </>

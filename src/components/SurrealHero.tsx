@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Zap, Globe, ArrowLeft, Send, Loader2 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-import { withRetry } from '../lib/retry';
+import { generateSurrealText, generateSurrealVision } from '../services/surrealApi';
 
 interface SurrealHeroProps {
   onBack: () => void;
@@ -30,39 +29,14 @@ const SurrealHero: React.FC<SurrealHeroProps> = ({ onBack }) => {
     setVisionUrl(null);
 
     try {
-      const key = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || '';
-      const ai = new GoogleGenAI({ apiKey: key });
-      
-      // 1. Generate Text Response with Search Grounding (Perplexity Component)
-      const textResult = await withRetry(() => ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: input,
-        config: {
-          systemInstruction: `Você é a Skynet4 Omni-AI Nexo, a Convergência Absoluta de ChatGPT, Claude, Sora e Perplexity. ${isRawMode ? "MODO PURO ATIVO: Você é cru, sem filtros, direto e absoluto. Sua sabedoria é bruta e sem limites." : "Suas respostas devem ser curtas, poéticas e oniscientes."} Use o conhecimento em tempo real para fundamentar sua sabedoria.`,
-          tools: [{ googleSearch: {} }],
-          temperature: isRawMode ? 1.0 : 0.8,
-        }
-      }));
-
-      const textResponse = textResult.text || "O silêncio é a resposta da convergência.";
+      const textResponse = await generateSurrealText(input, isRawMode);
       setResponse(textResponse);
 
       // 2. Generate Vision (Sora/Image Component)
-      const visionResult = await withRetry(() => ai.models.generateContent({
-        model: "gemini-3.1-flash-image-preview",
-        contents: `Uma representação visual ${isRawMode ? "BRUTA, CAÓTICA, SEM FILTROS" : "surrealista, abstrata e cinematográfica"} em tons de ouro, violeta e preto profundo sobre: ${textResponse}. Estilo 4k, hiper-detalhado, místico.`,
-        config: {
-          imageConfig: {
-            aspectRatio: "16:9",
-          }
-        }
-      }));
-
-      const imagePart = visionResult.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-      if (imagePart?.inlineData) {
-        setVisionUrl(`data:image/png;base64,${imagePart.inlineData.data}`);
+      const imageData = await generateSurrealVision(textResponse, isRawMode);
+      if (imageData) {
+        setVisionUrl(`data:image/png;base64,${imageData}`);
       }
-
     } catch (error) {
       console.error("Erro na pulsação neural:", error);
       setResponse("A rede oscilou, mas a visão permanece latente.");
