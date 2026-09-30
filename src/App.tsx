@@ -813,7 +813,7 @@ export default function App() {
       setNeuralAnalysis(analysis);
       setMessages(prev => [...prev, { 
         role: 'model', 
-        text: `🧠 **ANÁLISE NEURAL CONCLUÍDA**\n\n**Temas Identificados:** ${analysis.themes.join(', ')}\n**Intenção do Mestre:** ${analysis.intent}\n**Próxima Expansão Sugerida:** ${analysis.nextStep}` 
+        text: `🧠 **ANÁLISE NEURAL CONCLUÍDA**\n\n${analysis}` 
       }]);
     } catch (e) {
       console.error(e);
