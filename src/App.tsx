@@ -207,7 +207,7 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
         providerId: provider.providerId,
         displayName: provider.displayName,
         email: provider.email,
-        photoUrl: provider.photoURL
+        photoUrl: provider.photoUrl
       })) || []
     },
     operationType,
