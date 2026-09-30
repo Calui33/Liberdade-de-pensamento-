@@ -13,8 +13,8 @@ export type CreditResult = {
 export const consumeCredits = async (req: Request, amount: number): Promise<CreditResult> => {
   if (!CREDIT_COSTS.has(amount)) return { ok: false, error: "Custo de crédito inválido." };
 
-  const firebaseUser = (req as any).firebaseUser;
-  const token = (req.header("Authorization") || "").slice(7);
+  const firebaseUser = req.firebaseUser;
+  const token = req.firebaseToken;
   const uid = firebaseUser?.localId;
   if (!uid || !token) return { ok: false, error: "Autenticação necessária." };
 
