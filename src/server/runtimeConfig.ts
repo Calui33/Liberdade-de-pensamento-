@@ -3,7 +3,7 @@ import firebaseConfig from "../../firebase-applet-config.json";
 
 dotenv.config();
 
-export const ownerEmail = (process.env.OWNER_EMAIL || "mcaluissa@gmail.com").trim().toLowerCase();
+export const ownerEmail = (process.env.OWNER_EMAIL || "setecentistaquero@gmail.com").trim().toLowerCase();
 
 export const geminiApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
 
