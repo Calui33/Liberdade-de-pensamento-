@@ -251,6 +251,61 @@ async function startServer() {
     }
   });
 
+  app.post("/api/neural/video", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+      const duration = [5, 10, 15].includes(Number(req.body?.duration)) ? Number(req.body.duration) : 5;
+      const aspectRatio = req.body?.aspectRatio === "9:16" ? "9:16" : "16:9";
+      const resolution = req.body?.resolution === "1080p" ? "1080p" : "720p";
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      let operation = await ai.models.generateVideos({
+        model: "veo-3.1-fast-generate-preview", prompt,
+        config: { numberOfVideos: 1, resolution, aspectRatio },
+      });
+      while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await ai.operations.getVideosOperation({ operation });
+      }
+      let finalOperation = operation;
+      if (duration > 5) {
+        let ext1 = await ai.models.generateVideos({
+          model: "veo-3.1-fast-generate-preview", prompt: "continue a cena de forma fluida e realista",
+          video: operation.response?.generatedVideos?.[0]?.video,
+          config: { numberOfVideos: 1, resolution: "720p", aspectRatio },
+        });
+        while (!ext1.done) {
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          ext1 = await ai.operations.getVideosOperation({ operation: ext1 });
+        }
+        finalOperation = ext1;
+        if (duration >= 15) {
+          let ext2 = await ai.models.generateVideos({
+            model: "veo-3.1-fast-generate-preview", prompt: "conclua a cena com perfeição visual",
+            video: ext1.response?.generatedVideos?.[0]?.video,
+            config: { numberOfVideos: 1, resolution: "720p", aspectRatio },
+          });
+          while (!ext2.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            ext2 = await ai.operations.getVideosOperation({ operation: ext2 });
+          }
+          finalOperation = ext2;
+        }
+      }
+      const downloadLink = finalOperation.response?.generatedVideos?.[0]?.video?.uri;
+      if (!downloadLink) return res.status(502).json({ error: "Video operation completed without a download URI." });
+      const videoResponse = await fetch(downloadLink, { headers: { "x-goog-api-key": apiKey } });
+      if (!videoResponse.ok) throw new Error(`Video download failed: ${videoResponse.status}`);
+      const buffer = Buffer.from(await videoResponse.arrayBuffer());
+      res.json({ videoData: buffer.toString("base64") });
+    } catch (error: any) {
+      console.error("Video generation failed:", error);
+      res.status(500).json({ error: error?.message || "Video generation failed." });
+    }
+  });
+
   // GitHub API Proxy
   app.all("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
