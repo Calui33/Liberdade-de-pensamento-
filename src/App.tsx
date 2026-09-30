@@ -166,7 +166,7 @@ const sounds = new SoundEngine();
 
 type Message = { role: 'user' | 'model', text: string, id?: string, image?: string, imageId?: string };
 
-enum OperationType {
+enum PersistenceOperationType {
   CREATE = 'create',
   UPDATE = 'update',
   DELETE = 'delete',
@@ -175,9 +175,9 @@ enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
+interface PersistenceErrorInfo {
   error: string;
-  operationType: OperationType;
+  operationType: PersistenceOperationType;
   path: string | null;
   authInfo: {
     userId?: string;
@@ -194,8 +194,8 @@ interface FirestoreErrorInfo {
   }
 }
 
-const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
-  const errInfo: FirestoreErrorInfo = {
+const handlePersistenceError = (error: unknown, operationType: PersistenceOperationType, path: string | null) => {
+  const errInfo: PersistenceErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
       userId: authProvider.getCurrentUser()?.uid,
@@ -213,7 +213,7 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error('Persistence Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -415,10 +415,10 @@ export default function App() {
               credits: 100,
               role: currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user'
             };
-            dataProvider.createUser(currentUser.uid, newUser).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
+            dataProvider.createUser(currentUser.uid, newUser).catch(err => handlePersistenceError(err, PersistenceOperationType.WRITE, `users/${currentUser.uid}`));
           }
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+          handlePersistenceError(error, PersistenceOperationType.GET, `users/${currentUser.uid}`);
         });
 
         const unsubImages = dataProvider.watchUserImages(currentUser.uid, (imgs) => {
@@ -451,7 +451,7 @@ export default function App() {
             });
           }
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, 'chats');
+          handlePersistenceError(error, PersistenceOperationType.GET, 'chats');
         });
 
         sessionCleanups = [unsubUser, unsubImages, unsubChat];
@@ -501,7 +501,7 @@ export default function App() {
     if (!user) return;
     const path = `chats/${user.uid}`;
     try {
-      // Strip large base64 data before saving to Firestore to stay within the persistence document limit
+      // Strip large base64 data before saving to stay within the persistence document limit
       const messagesToSave = newMessages.map(m => {
         if (m.image && m.image.startsWith('data:')) {
           const { image, ...rest } = m;
@@ -515,7 +515,7 @@ export default function App() {
         messages: messagesToSave
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, path);
+      handlePersistenceError(error, PersistenceOperationType.WRITE, path);
     }
   };
 
@@ -1106,7 +1106,7 @@ export default function App() {
       sounds.playSuccess();
       setMessages(prev => [...prev, { role: 'model', text: "✅ **Restauração Manual Concluída.** Mestre, sua reserva neural foi reabastecida com 999.999 créditos e seu status de Administrador foi revalidado." }]);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${activeUser.uid}`);
+      handlePersistenceError(error, PersistenceOperationType.UPDATE, `users/${activeUser.uid}`);
     }
   };
 
