@@ -546,7 +546,7 @@ const NeuralDebugTerminal: React.FC<{ messages: any[], user: any, credits: numbe
               uid: user?.uid,
               email: user?.email,
               credits: credits,
-              role: user?.email === 'mcaluissa@gmail.com' ? 'ADMIN_SUPREMO' : 'USER_STANDARD',
+              role: user?.email === 'setecentistaquero@gmail.com' ? 'ADMIN_SUPREMO' : 'USER_STANDARD',
               lastSignIn: user?.metadata?.lastSignInTime
             }, null, 2)}
           </pre>
