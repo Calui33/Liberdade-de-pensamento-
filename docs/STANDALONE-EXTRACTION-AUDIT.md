@@ -95,3 +95,19 @@ These are infrastructure/security/reliability concerns and must not be “fixed�
 ## Invariant
 
 No extraction commit may intentionally alter SKYNET4 identity, tone, mode semantics, specialist terminology, model selection, tool configuration, or generation parameters unless that change is separately identified and approved.
+
+
+## Extraction progress — 2026-09-30
+
+Completed on this branch:
+
+- Main OMNI-AI text chat moved behind `/api/omni/chat` with the protected identity prompt, model, Search grounding and token limit preserved.
+- Prompt enhancement, neural context analysis, image analysis and Manus moved behind server-side neural endpoints.
+- Neural image generation and TTS moved behind server-side endpoints.
+- SurrealHero text and image generation moved behind server-side endpoints with its protected mode wording and temperatures preserved.
+- Daily wisdom and Google Maps grounding moved behind server-side endpoints.
+- Veo generation and operation polling moved server-side; the browser still receives a playable Blob URL.
+- Vite client-side Gemini key injection removed.
+- AI Studio key-selection UI/dependency removed from the application surface.
+
+Not yet validated by a real build/CI run because this repository currently reports no workflow/status checks for the extraction commits. Do not treat the branch as production-validated until a build/type check is run.
