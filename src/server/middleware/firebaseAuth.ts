@@ -1,7 +1,27 @@
+import { createHash } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { firebaseApiKey, ownerEmail } from "../runtimeConfig";
 
-const authCache = new Map<string, { user: any; expiresAt: number }>();
+export type FirebaseIdentity = {
+  localId: string;
+  email?: string;
+  emailVerified?: boolean;
+  disabled?: boolean;
+};
+
+declare global {
+  namespace Express {
+    interface Request {
+      firebaseUser?: FirebaseIdentity;
+      firebaseToken?: string;
+    }
+  }
+}
+
+const authCache = new Map<string, { user: FirebaseIdentity; expiresAt: number }>();
+
+const cacheKeyForToken = (token: string) =>
+  createHash("sha256").update(token).digest("hex");
 
 export const requireFirebaseAuth = async (req: Request, res: Response, next: NextFunction) => {
   const header = req.header("Authorization") || "";
@@ -9,9 +29,11 @@ export const requireFirebaseAuth = async (req: Request, res: Response, next: Nex
   if (!token) return res.status(401).json({ error: "Autenticação necessária." });
   if (!firebaseApiKey) return res.status(500).json({ error: "FIREBASE_API_KEY não configurada no servidor." });
 
-  const cached = authCache.get(token);
+  const cacheKey = cacheKeyForToken(token);
+  const cached = authCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    (req as any).firebaseUser = cached.user;
+    req.firebaseUser = cached.user;
+    req.firebaseToken = token;
     return next();
   }
 
@@ -25,13 +47,14 @@ export const requireFirebaseAuth = async (req: Request, res: Response, next: Nex
       }
     );
     const data = await response.json();
-    const firebaseUser = data?.users?.[0];
+    const firebaseUser = data?.users?.[0] as FirebaseIdentity | undefined;
     if (!response.ok || !firebaseUser || firebaseUser.disabled) {
       return res.status(401).json({ error: "Sessão Firebase inválida ou expirada." });
     }
 
-    authCache.set(token, { user: firebaseUser, expiresAt: Date.now() + 5 * 60 * 1000 });
-    (req as any).firebaseUser = firebaseUser;
+    authCache.set(cacheKey, { user: firebaseUser, expiresAt: Date.now() + 5 * 60 * 1000 });
+    req.firebaseUser = firebaseUser;
+    req.firebaseToken = token;
     next();
   } catch (error) {
     console.error("Firebase auth verification failed:", error);
@@ -40,8 +63,7 @@ export const requireFirebaseAuth = async (req: Request, res: Response, next: Nex
 };
 
 export const requireOwner = (req: Request, res: Response, next: NextFunction) => {
-  const firebaseUser = (req as any).firebaseUser;
-  const email = typeof firebaseUser?.email === "string" ? firebaseUser.email.trim().toLowerCase() : "";
+  const email = req.firebaseUser?.email?.trim().toLowerCase() || "";
   if (!email || email !== ownerEmail) {
     return res.status(403).json({ error: "Esta instância da SKYNET4 é privada e pertence ao proprietário autorizado." });
   }
