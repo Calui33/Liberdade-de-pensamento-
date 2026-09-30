@@ -52,10 +52,10 @@ Temperature:
 
 ## Current infrastructure observations
 
-- Firebase/Firestore is the primary application datastore.
-- Supabase is currently a secondary synchronization/analytics path.
-- Stripe is handled by the existing Express server.
-- GitHub is exposed through the existing Express proxy.
+- Firebase/Firestore is the current authentication and primary application datastore.
+- Firebase is exposed to the application through authentication and data provider boundaries.
+- Gemini/Veo remain the current neural provider behind the server-side NeuralProvider adapter.
+- GitHub remains an optional authenticated read-only integration for the owner's repository workflow.
 - Gemini credentials are server-side; the browser does not receive the Gemini API credential.
 
 ## Validation target
