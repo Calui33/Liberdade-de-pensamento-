@@ -147,6 +147,52 @@ async function startServer() {
     }
   });
 
+  app.post("/api/neural/image-generate", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+      const imageSize = ["1K", "2K", "4K"].includes(req.body?.imageSize) ? req.body.imageSize : "1K";
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-3.1-flash-image-preview",
+        contents: { parts: [{ text: prompt }] },
+        config: { imageConfig: { imageSize, aspectRatio: "1:1" } },
+      }));
+      const imageData = result.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data || "";
+      res.json({ imageData });
+    } catch (error: any) {
+      console.error("Image generation failed:", error);
+      res.status(500).json({ error: error?.message || "Image generation failed." });
+    }
+  });
+
+  app.post("/api/neural/tts", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const instruction = typeof req.body?.instruction === "string" ? req.body.instruction : "";
+      const text = typeof req.body?.text === "string" ? req.body.text : "";
+      const voiceName = typeof req.body?.voiceName === "string" ? req.body.voiceName : "Zephyr";
+      const { GoogleGenAI, Modality } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: instruction + text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+        },
+      }));
+      const audioData = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+      res.json({ audioData });
+    } catch (error: any) {
+      console.error("TTS failed:", error);
+      res.status(500).json({ error: error?.message || "TTS generation failed." });
+    }
+  });
+
   // GitHub API Proxy
   app.all("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
