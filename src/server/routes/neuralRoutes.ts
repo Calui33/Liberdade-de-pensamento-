@@ -1,19 +1,18 @@
 import { Router } from "express";
-import { getNeuralProvider } from "../providers/neuralProvider";
+import type { Content } from "@google/genai";
+import { getNeuralProvider, type NeuralMessage } from "../providers/neuralProvider";
 import { consumeCredits } from "../services/creditsService";
 import { publicServerError } from "../utils/publicServerError";
 
 export function createNeuralRouter() {
   const router = Router();
 
-  // SKYNET4 OMNI-AI NEXO — server-side Gemini bridge.
-  // Personality/configuration is intentionally kept identical to the protected contract.
   router.post("/omni/chat", async (req, res) => {
     try {
       const credit = await consumeCredits(req, 1);
       if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
       const text = await getNeuralProvider().omniChat(
-        Array.isArray(req.body?.contents) ? req.body.contents : [],
+        (Array.isArray(req.body?.contents) ? req.body.contents : []) as Content[],
         typeof req.body?.runtimeUrl === "string" ? req.body.runtimeUrl : ""
       );
       res.json({ text });
@@ -23,7 +22,6 @@ export function createNeuralRouter() {
     }
   });
 
-  // SKYNET4 neural specialist capabilities — server-side extraction.
   router.post("/neural/enhance", async (req, res) => {
     try {
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
@@ -37,7 +35,7 @@ export function createNeuralRouter() {
 
   router.post("/neural/context", async (req, res) => {
     try {
-      const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+      const messages = (Array.isArray(req.body?.messages) ? req.body.messages : []) as NeuralMessage[];
       res.json({ text: await getNeuralProvider().analyzeContext(messages) });
     } catch (error: unknown) {
       console.error("Neural analysis failed:", error);
@@ -143,7 +141,7 @@ export function createNeuralRouter() {
 
   router.post("/neural/map", async (req, res) => {
     try {
-      const contents = Array.isArray(req.body?.contents) ? req.body.contents : [];
+      const contents = (Array.isArray(req.body?.contents) ? req.body.contents : []) as Content[];
       const searchQuery = typeof req.body?.searchQuery === "string" ? req.body.searchQuery : "";
       const latLng = req.body?.latLng || { latitude: -23.5505, longitude: -46.6333 };
       res.json(await getNeuralProvider().neuralMap(contents, searchQuery, latLng));
