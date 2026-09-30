@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - "extract/standalone-personality-preserved"
+      - "hardening/server-credits"
+      - "main"
   workflow_dispatch:
 
 jobs:
