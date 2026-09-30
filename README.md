@@ -27,3 +27,21 @@ The development server runs the standalone application and its authenticated API
 ## Protected personality contract
 
 See `docs/SKYNET4-PERSONALITY-CONTRACT.md` before changing any prompt, model, temperature, tool or token-limit configuration. Changes to those elements should be deliberate and reviewed separately from infrastructure work.
+
+
+## Deploy gratuito no Render
+
+O projeto está preparado para ser publicado como um único **Web Service** no Render, mantendo o Express e o Vite no mesmo processo.
+
+1. Crie um Web Service a partir deste repositório no Render.
+2. Use o blueprint `render.yaml` ou configure manualmente:
+   - **Runtime:** Node
+   - **Build:** `npm ci && npm run build`
+   - **Start:** `npm start`
+   - **Health Check:** `/healthz`
+3. Configure no Render as variáveis secretas definidas em `.env.example`, principalmente `GEMINI_API_KEY`, `FIREBASE_API_KEY` e `OWNER_EMAIL`.
+4. Não coloque chaves reais no repositório. O `GEMINI_API_KEY` permanece exclusivamente no servidor.
+
+> O plano gratuito do Render pode suspender o serviço após períodos de inatividade. O primeiro acesso depois disso pode levar algum tempo.
+
+A configuração de deploy não altera prompts, personalidade, modelos ou parâmetros do núcleo neural.
