@@ -756,15 +756,7 @@ export default function App() {
       console.log("Enhanced Prompt:", enhancedPrompt);
       setIsEnhancing(false);
 
-      const imageData = await generateNeuralImage(enhancedPrompt, imageSize);      let imageData = "";
-      if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            imageData = part.inlineData.data;
-            break;
-          }
-        }
-      }
+      const imageData = await generateNeuralImage(enhancedPrompt, imageSize);
 
       if (imageData) {
         const imageUrl = `data:image/png;base64,${imageData}`;
