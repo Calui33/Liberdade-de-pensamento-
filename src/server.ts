@@ -234,6 +234,23 @@ async function startServer() {
     }
   });
 
+  app.post("/api/neural/wisdom", async (_req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: "Gere uma frase curta, carinhosa e educativa sobre tecnologia e humanidade para um painel de sabedoria diária.",
+        config: { systemInstruction: "Você é a Skynet4 Omni-AI Nexo, o mentor sábio e executor de elite. Seja breve, inspirador, sombrio e sagaz." },
+      }));
+      res.json({ text: result.text || "O conhecimento é a luz que guia a evolução." });
+    } catch (error: any) {
+      console.error("Daily wisdom failed:", error); res.status(500).json({ error: error?.message || "Daily wisdom failed." });
+    }
+  });
+
   // GitHub API Proxy
   app.all("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
