@@ -72,11 +72,97 @@ async function startServer() {
 
   app.use("/api", requireFirebaseAuth);
 
+  const firestoreBase = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents`;
+  const CREDIT_COSTS = new Set([1, 5, 20, 35, 50]);
+
+  const consumeCredits = async (req: express.Request, amount: number): Promise<{ ok: boolean; credits?: number; error?: string }> => {
+    if (!CREDIT_COSTS.has(amount)) return { ok: false, error: "Custo de crédito inválido." };
+
+    const firebaseUser = (req as any).firebaseUser;
+    const token = (req.header("Authorization") || "").slice(7);
+    const uid = firebaseUser?.localId;
+    if (!uid || !token) return { ok: false, error: "Autenticação necessária." };
+
+    // Preserve the existing Master/admin behavior, but decide it on the server.
+    if (firebaseUser.email?.toLowerCase() === "mcaluissa@gmail.com") {
+      return { ok: true, credits: 999999 };
+    }
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const response = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.status === 404) {
+        const created = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fields: {
+              uid: { stringValue: uid },
+              email: { stringValue: firebaseUser.email || "" },
+              credits: { integerValue: String(100 - amount) },
+              role: { stringValue: "user" },
+              createdAt: { timestampValue: new Date().toISOString() },
+            },
+          }),
+        });
+        if (created.ok) return { ok: true, credits: 100 - amount };
+        if (created.status === 409) continue;
+        return { ok: false, error: "Não foi possível inicializar o perfil de créditos." };
+      }
+
+      if (!response.ok) return { ok: false, error: "Não foi possível consultar os créditos." };
+
+      const userDoc = await response.json();
+      const role = userDoc.fields?.role?.stringValue;
+      if (role === "admin") return { ok: true, credits: 999999 };
+
+      const currentCredits = Number(userDoc.fields?.credits?.integerValue ?? userDoc.fields?.credits?.doubleValue ?? 0);
+      if (!Number.isFinite(currentCredits) || currentCredits < amount) {
+        return { ok: false, credits: currentCredits, error: "Créditos insuficientes." };
+      }
+
+      const nextCredits = currentCredits - amount;
+      const update = await fetch(
+        `${firestoreBase}/users/${encodeURIComponent(uid)}?updateMask.fieldPaths=credits`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fields: { credits: { integerValue: String(nextCredits) } },
+            currentDocument: { updateTime: userDoc.updateTime },
+          }),
+        }
+      );
+
+      if (update.ok) return { ok: true, credits: nextCredits };
+      if (update.status === 409) continue;
+      return { ok: false, error: "Não foi possível atualizar os créditos." };
+    }
+
+    return { ok: false, error: "A reserva de créditos mudou durante a operação. Tente novamente." };
+  };
+
+  app.post("/api/credits/consume", async (req, res) => {
+    try {
+      const amount = Number(req.body?.amount);
+      const result = await consumeCredits(req, amount);
+      if (!result.ok) return res.status(result.error === "Créditos insuficientes." ? 402 : 400).json(result);
+      res.json({ ok: true, credits: result.credits });
+    } catch (error) {
+      console.error("Credit consumption failed:", error);
+      res.status(503).json({ error: "Não foi possível processar os créditos." });
+    }
+  });
+
 
   // SKYNET4 OMNI-AI NEXO — server-side Gemini bridge.
   // Personality/configuration is intentionally kept identical to the protected contract.
   app.post("/api/omni/chat", async (req, res) => {
     try {
+      const credit = await consumeCredits(req, 1);
+      if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
 
@@ -188,6 +274,8 @@ async function startServer() {
 
   app.post("/api/neural/image-generate", async (req, res) => {
     try {
+      const credit = await consumeCredits(req, 5);
+      if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
@@ -293,10 +381,13 @@ async function startServer() {
 
   app.post("/api/neural/video", async (req, res) => {
     try {
+      const duration = [5, 10, 15].includes(Number(req.body?.duration)) ? Number(req.body.duration) : 5;
+      const cost = duration >= 15 ? 50 : (duration >= 10 ? 35 : 20);
+      const credit = await consumeCredits(req, cost);
+      if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
-      const duration = [5, 10, 15].includes(Number(req.body?.duration)) ? Number(req.body.duration) : 5;
       const aspectRatio = req.body?.aspectRatio === "9:16" ? "9:16" : "16:9";
       const resolution = req.body?.resolution === "1080p" ? "1080p" : "720p";
       const { GoogleGenAI } = await import("@google/genai");
