@@ -615,16 +615,16 @@ export default function App() {
       
       // Clean text for better TTS (remove markdown and excessive symbols)
       const cleanText = text
-        .replace(/\\*\\*/g, '')
-        .replace(/\\*/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
         .replace(/#/g, '')
-        .replace(/\\[.*?\\]\\(.*?\\)/g, '')
-        .replace(/\`{3}[\\s\\S]*?\`{3}/g, '[Código omitido]')
-        .replace(/\`.*?\`/g, '')
+        .replace(/\[.*?\]\(.*?\)/g, '')
+        .replace(/`{3}[\s\S]*?`{3}/g, '[Código omitido]')
+        .replace(/`.*?`/g, '')
         .replace(/[-_]{3,}/g, '')
         .trim();
 
-      const base64Audio = await synthesizeNeuralSpeech(config.instruction, cleanText, config.voiceName);      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const base64Audio = await synthesizeNeuralSpeech(config.instruction, cleanText, config.voiceName);
       if (base64Audio) {
         const binaryString = atob(base64Audio);
         const len = binaryString.length;
