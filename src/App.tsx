@@ -50,12 +50,12 @@ import {
   Infinity as InfinityIcon
 } from 'lucide-react';
 
-import { withRetry } from './lib/retry';
 import Markdown from 'react-markdown';
 import { syncToSupabase } from './components/services/lib/supabase';
 import { enhancePrompt, analyzeNeuralContext, analyzeImage, manusEngineeringAgent } from './components/services/neuralService';
 import { generateOmniResponse } from './services/omniApi';
 import { generateNeuralImage, synthesizeNeuralSpeech } from './services/neuralMediaApi';
+import { searchNeuralMap } from './services/mapApi';
 import { generateNeuralVideo } from './services/videoApi';
 import SurrealHero from './components/SurrealHero';
 import OmniAINexo from './components/OmniAINexo';
@@ -94,13 +94,6 @@ declare global {
 }
 
 // Initialize Gemini
-const getGeminiKey = () => {
-  const key = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || '';
-  return key;
-};
-
-const ai = new GoogleGenAI({ apiKey: getGeminiKey() });
-
 // --- Matrix Background Component ---
 const MatrixBackground = ({ isSurrealMode }: { isSurrealMode?: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1022,22 +1015,11 @@ export default function App() {
 
         const searchQuery = mapMatch[1]?.trim() || "Neural Nodes (Tech Hubs, AI Research Centers)";
 
-        response = await withRetry(() => ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: initialMessages.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.text }]
-          })),
-          config: {
-            systemInstruction: `Você é o Navegador Neural da Skynet4 Omni-AI Nexo. Localize os 'Neural Nodes' (lugares) solicitados pelo Mestre. O Mestre está procurando por: ${searchQuery}. Forneça detalhes precisos e links do Google Maps.`,
-            tools: [{ googleMaps: {} }],
-            toolConfig: {
-              retrievalConfig: { latLng }
-            }
-          }
+        const mapContents = initialMessages.map(msg => ({
+          role: msg.role === 'user' ? 'user' as const : 'model' as const,
+          parts: [{ text: msg.text }]
         }));
-
-        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        const chunks = await searchNeuralMap(mapContents, searchQuery, latLng);        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
         if (chunks) {
           setMapData(chunks);
         }
