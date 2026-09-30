@@ -1,3 +1,4 @@
+import { apiFetch } from '../services/apiFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -665,7 +666,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
       if (query.includes('/')) {
         // Fetch files for a specific repo
         const [owner, repo] = query.split('/');
-        const response = await fetch(`/api/github/repos/${owner}/${repo}/contents`);
+        const response = await apiFetch(`/api/github/repos/${owner}/${repo}/contents`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         setGithubItems(Array.isArray(data) ? data : []);
@@ -673,7 +674,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
         setGithubRepo(query);
       } else {
         // Fetch repos for a user
-        const response = await fetch(`/api/github/users/${query}/repos?sort=updated`);
+        const response = await apiFetch(`/api/github/users/${query}/repos?sort=updated`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         setGithubItems(Array.isArray(data) ? data : []);
@@ -706,7 +707,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     try {
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await apiFetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1069,7 +1070,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                                 setIsSyncingGithub(true);
                                 try {
                                   const relativeUrl = item.url.replace('https://api.github.com/', '');
-                                  const response = await fetch(`/api/github/${relativeUrl}`);
+                                  const response = await apiFetch(`/api/github/${relativeUrl}`);
                                   const data = await response.json();
                                   if (data.content) {
                                     // GitHub content is Base64 encoded, often with newlines
