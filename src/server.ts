@@ -33,6 +33,44 @@ async function startServer() {
 
   app.use(express.json({ limit: "20mb" }));
 
+  const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
+  const authCache = new Map<string, { user: any; expiresAt: number }>();
+
+  const requireFirebaseAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const header = req.header("Authorization") || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+    if (!token) return res.status(401).json({ error: "Autenticação necessária." });
+    if (!firebaseApiKey) return res.status(500).json({ error: "FIREBASE_API_KEY não configurada no servidor." });
+
+    const cached = authCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      (req as any).firebaseUser = cached.user;
+      return next();
+    }
+
+    try {
+      const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseApiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+      });
+      const data = await response.json();
+      const firebaseUser = data?.users?.[0];
+      if (!response.ok || !firebaseUser || firebaseUser.disabled) {
+        return res.status(401).json({ error: "Sessão Firebase inválida ou expirada." });
+      }
+
+      authCache.set(token, { user: firebaseUser, expiresAt: Date.now() + 5 * 60 * 1000 });
+      (req as any).firebaseUser = firebaseUser;
+      next();
+    } catch (error) {
+      console.error("Firebase auth verification failed:", error);
+      res.status(503).json({ error: "Não foi possível verificar a sessão." });
+    }
+  };
+
+  app.use("/api", requireFirebaseAuth);
+
 
   // SKYNET4 OMNI-AI NEXO — server-side Gemini bridge.
   // Personality/configuration is intentionally kept identical to the protected contract.
@@ -329,8 +367,8 @@ async function startServer() {
     }
   });
 
-  // GitHub API Proxy
-  app.all("/api/github/*", async (req, res) => {
+  // GitHub API Proxy — authenticated, read-only, allowlisted.
+  app.get("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
     if (!pat) {
       return res.status(401).json({ 
@@ -339,19 +377,22 @@ async function startServer() {
     }
 
     const githubPath = req.params[0];
+    const allowedRepo = process.env.GITHUB_ALLOWED_REPO || "Calui33/Liberdade-de-pensamento-";
+    const allowedPrefix = `repos/${allowedRepo}/`;
+    if (!githubPath.startsWith(allowedPrefix) && !githubPath.startsWith("users/")) {
+      return res.status(403).json({ error: "Rota GitHub não autorizada." });
+    }
     const query = new URLSearchParams(req.query as any).toString();
     const url = `https://api.github.com/${githubPath}${query ? `?${query}` : ""}`;
 
     try {
       const response = await fetch(url, {
-        method: req.method,
+        method: "GET",
         headers: {
           "Authorization": `token ${pat}`,
           "Accept": "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
           "User-Agent": "OMNI-AI-App"
         },
-        body: ["POST", "PUT", "PATCH"].includes(req.method) ? JSON.stringify(req.body) : undefined
       });
 
       const data = await response.json();
@@ -382,8 +423,8 @@ async function startServer() {
           },
         ],
         mode: "payment",
-        success_url: `${req.headers.origin}/?success=true`,
-        cancel_url: `${req.headers.origin}/?canceled=true`,
+        success_url: `${process.env.APP_URL || "http://localhost:3000"}/?success=true`,
+        cancel_url: `${process.env.APP_URL || "http://localhost:3000"}/?canceled=true`,
       });
 
       res.json({ url: session.url });
