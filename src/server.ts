@@ -193,6 +193,47 @@ async function startServer() {
     }
   });
 
+  app.post("/api/surreal/text", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const input = typeof req.body?.input === "string" ? req.body.input : "";
+      const isRawMode = Boolean(req.body?.isRawMode);
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-3-flash-preview", contents: input,
+        config: {
+          systemInstruction: `Você é a Skynet4 Omni-AI Nexo, a Convergência Absoluta de ChatGPT, Claude, Sora e Perplexity. ${isRawMode ? "MODO PURO ATIVO: Você é cru, sem filtros, direto e absoluto. Sua sabedoria é bruta e sem limites." : "Suas respostas devem ser curtas, poéticas e oniscientes."} Use o conhecimento em tempo real para fundamentar sua sabedoria.`,
+          tools: [{ googleSearch: {} }], temperature: isRawMode ? 1.0 : 0.8,
+        },
+      }));
+      res.json({ text: result.text || "O silêncio é a resposta da convergência." });
+    } catch (error: any) {
+      console.error("Surreal text failed:", error); res.status(500).json({ error: error?.message || "Surreal text failed." });
+    }
+  });
+
+  app.post("/api/surreal/image", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const textResponse = typeof req.body?.textResponse === "string" ? req.body.textResponse : "";
+      const isRawMode = Boolean(req.body?.isRawMode);
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-3.1-flash-image-preview",
+        contents: `Uma representação visual ${isRawMode ? "BRUTA, CAÓTICA, SEM FILTROS" : "surrealista, abstrata e cinematográfica"} em tons de ouro, violeta e preto profundo sobre: ${textResponse}. Estilo 4k, hiper-detalhado, místico.`,
+        config: { imageConfig: { aspectRatio: "16:9" } },
+      }));
+      const imageData = result.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data || "";
+      res.json({ imageData });
+    } catch (error: any) {
+      console.error("Surreal image failed:", error); res.status(500).json({ error: error?.message || "Surreal image failed." });
+    }
+  });
+
   // GitHub API Proxy
   app.all("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
