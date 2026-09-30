@@ -56,6 +56,7 @@ import { syncToSupabase } from './components/services/lib/supabase';
 import { enhancePrompt, analyzeNeuralContext, analyzeImage, manusEngineeringAgent } from './components/services/neuralService';
 import { generateOmniResponse } from './services/omniApi';
 import { generateNeuralImage, synthesizeNeuralSpeech } from './services/neuralMediaApi';
+import { generateNeuralVideo } from './services/videoApi';
 import SurrealHero from './components/SurrealHero';
 import OmniAINexo from './components/OmniAINexo';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -729,11 +730,6 @@ export default function App() {
   };
 
   const generateVideo = async (prompt: string, duration: number = 5, aspectRatio: '16:9' | '9:16' = '16:9', resolution: '720p' | '1080p' = '720p') => {
-    if (!hasApiKey) {
-      setMessages(prev => [...prev, { role: 'model', text: "⚠️ **Acesso Negado.** Para gerar vídeos neurais (Sora/Veo), você precisa selecionar uma chave de API paga. [Clique aqui para configurar](https://ai.google.dev/gemini-api/docs/billing)." }]);
-      return;
-    }
-
     const cost = duration >= 15 ? 50 : (duration >= 10 ? 35 : 20);
     const hasCredits = await deductCredits(cost);
     if (!hasCredits) return;
@@ -743,80 +739,13 @@ export default function App() {
     sounds.playBip(880, 'square', 0.5);
     
     try {
-      const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY });
-      let operation = await localAi.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: prompt,
-        config: {
-          numberOfVideos: 1,
-          resolution: resolution,
-          aspectRatio: aspectRatio
-        }
-      });
-
-      setVideoProgress("Renderizando frames iniciais...");
-
-      while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await localAi.operations.getVideosOperation({ operation: operation });
-      }
-
-      let finalOperation = operation;
-
-      // Handle extensions for 10s or 15s
-      if (duration > 5) {
-        setVideoProgress(`Estendendo vídeo para ${duration}s (Fase 2)...`);
-        let ext1 = await localAi.models.generateVideos({
-          model: 'veo-3.1-fast-generate-preview',
-          prompt: "continue a cena de forma fluida e realista",
-          video: operation.response?.generatedVideos?.[0]?.video,
-          config: {
-            numberOfVideos: 1,
-            resolution: '720p', // Extensions must be 720p
-            aspectRatio: aspectRatio
-          }
-        });
-
-        while (!ext1.done) {
-          await new Promise(resolve => setTimeout(resolve, 10000));
-          ext1 = await localAi.operations.getVideosOperation({ operation: ext1 });
-        }
-        finalOperation = ext1;
-
-        if (duration >= 15) {
-          setVideoProgress("Finalizando síntese estendida (Fase 3)...");
-          let ext2 = await localAi.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
-            prompt: "conclua a cena com perfeição visual",
-            video: ext1.response?.generatedVideos?.[0]?.video,
-            config: {
-              numberOfVideos: 1,
-              resolution: '720p',
-              aspectRatio: aspectRatio
-            }
-          });
-
-          while (!ext2.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            ext2 = await localAi.operations.getVideosOperation({ operation: ext2 });
-          }
-          finalOperation = ext2;
-        }
-      }
-
-      const downloadLink = finalOperation.response?.generatedVideos?.[0]?.video?.uri;
-      if (downloadLink) {
-        const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-        const response = await fetch(downloadLink, {
-          method: 'GET',
-          headers: { 'x-goog-api-key': apiKey || "" },
-        });
-        const blob = await response.blob();
-        const videoUrl = URL.createObjectURL(blob);
-        
+      const videoData = await generateNeuralVideo(prompt, duration, aspectRatio, resolution);
+      setVideoProgress("Preparando manifestação visual...");
+      if (videoData) {
+        const videoUrl = `data:video/mp4;base64,${videoData}`;
         const newMsg: Message = { 
           role: 'model', 
-          text: `🎥 **Vídeo de ${duration >= 15 ? '15' : '5'} Segundos Gerado com Sucesso.**\n\n![Video](${videoUrl})` 
+          text: `🎥 **Vídeo de ${duration >= 15 ? '15' : '5'} Segundos Gerado com Sucesso.**\\n\\n![Video](${videoUrl})` 
         };
         setMessages(prev => {
           const updated = [...prev, newMsg];
@@ -824,16 +753,13 @@ export default function App() {
           return updated;
         });
         sounds.playSuccess();
+      } else {
+        throw new Error("No video data returned");
       }
     } catch (error: any) {
       console.error(error);
       sounds.playError();
-      if (error.message?.includes("Requested entity was not found")) {
-        setHasApiKey(false);
-        setMessages(prev => [...prev, { role: 'model', text: "❌ **Erro de Chave.** A chave selecionada expirou ou é inválida. Por favor, selecione novamente." }]);
-      } else {
-        setMessages(prev => [...prev, { role: 'model', text: "❌ **Falha na Síntese.** A rede Skynet4 encontrou uma instabilidade durante a renderização." }]);
-      }
+      setMessages(prev => [...prev, { role: 'model', text: "❌ **Falha na Síntese.** A rede Skynet4 encontrou uma instabilidade durante a renderização." }]);
     } finally {
       setIsGeneratingVideo(false);
       setVideoProgress("");
