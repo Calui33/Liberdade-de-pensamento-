@@ -6,6 +6,9 @@ on:
       - "extract/standalone-personality-preserved"
       - "hardening/server-credits"
       - "main"
+  pull_request:
+    branches:
+      - "main"
   workflow_dispatch:
 
 jobs:
