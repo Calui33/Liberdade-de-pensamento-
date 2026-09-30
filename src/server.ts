@@ -247,7 +247,8 @@ async function startServer() {
       }));
       res.json({ text: result.text || "O conhecimento é a luz que guia a evolução." });
     } catch (error: any) {
-      console.error("Daily wisdom failed:", error); res.status(500).json({ error: error?.message || "Daily wisdom failed." });
+      console.error("Daily wisdom failed:", error);
+      res.json({ text: "A sabedoria reside na busca constante pelo saber." });
     }
   });
 
