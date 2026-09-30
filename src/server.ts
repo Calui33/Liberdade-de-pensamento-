@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { githubAllowedRepo, githubPat } from "./server/runtimeConfig";
 import { createNeuralRouter } from "./server/routes/neuralRoutes";
+import { consumeCredits } from "./server/services/creditsService";
 import { requireFirebaseAuth, requireOwner } from "./server/middleware/firebaseAuth";
 
 
