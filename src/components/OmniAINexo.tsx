@@ -26,7 +26,6 @@ import {
   Mic, 
   Search, 
   ImageIcon, 
-  Key,
   Code as CodeIcon, 
   Layers, 
   Play, 
@@ -100,8 +99,6 @@ interface OmniAINexoProps {
   onSendMessage: (text: string) => void;
   onManualRestore?: () => Promise<void>;
   onShowOnboarding?: () => void;
-  hasApiKey?: boolean;
-  onOpenKeyDialog?: () => void;
   networkStatus: 'online' | 'offline';
 }
 
@@ -648,8 +645,6 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
   onSendMessage,
   onManualRestore,
   onShowOnboarding,
-  hasApiKey,
-  onOpenKeyDialog,
   networkStatus
 }) => {
   const [input, setInput] = useState('');
@@ -1228,27 +1223,10 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                           <div className="text-[8px] text-red-500/60">Console de sistema</div>
                         </div>
                       </button>
-                      <button 
-                        onClick={() => {
-                          if (onOpenKeyDialog) onOpenKeyDialog();
-                          setShowSettings(false);
-                        }}
-                        className={`p-4 border rounded-2xl flex flex-col gap-2 transition-all group ${
-                          hasApiKey 
-                            ? 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10' 
-                            : 'bg-amber-500/5 border-amber-500/10 hover:bg-amber-500/10'
-                        }`}
-                      >
-                        <Key size={18} className={hasApiKey ? 'text-green-500' : 'text-amber-500'} />
-                        <div className="text-left">
-                          <div className={`text-[10px] font-bold uppercase tracking-widest ${hasApiKey ? 'text-green-500' : 'text-amber-500'}`}>
-                            {hasApiKey ? 'Chave Ativa' : 'Configurar API'}
-                          </div>
-                          <div className={`text-[8px] ${hasApiKey ? 'text-green-500/60' : 'text-amber-500/60'}`}>
-                            {hasApiKey ? 'Núcleo sincronizado' : 'Requerido para IA'}
-                          </div>
-                        </div>
-                      </button>
+                      <div className="p-4 bg-green-500/5 border border-green-500/10 rounded-2xl flex flex-col gap-2">
+                        <div className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Núcleo Neural</div>
+                        <div className="text-[8px] text-green-500/60">Credencial protegida no servidor</div>
+                      </div>button>
                     </div>
                   </div>
 
