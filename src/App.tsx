@@ -393,7 +393,10 @@ export default function App() {
 
   // Auth & Sync
   useEffect(() => {
+    let sessionCleanups: (() => void)[] = [];
     const unsubscribe = authProvider.subscribe(async (currentUser) => {
+      sessionCleanups.forEach((cleanup) => cleanup());
+      sessionCleanups = [];
       if (currentUser) {
         setUser(currentUser);
         setIsAuthenticated(true);
@@ -411,7 +414,7 @@ export default function App() {
               email: currentUser.email,
               credits: 100,
               role: currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user',
-              createdAt: new Date()
+              createdAt: undefined
             };
             dataProvider.createUser(currentUser.uid, newUser).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
           }
@@ -447,19 +450,14 @@ export default function App() {
             await dataProvider.saveChat(currentUser.uid, {
               uid: currentUser.uid,
               messages: initial,
-              updatedAt: new Date()
+              updatedAt: undefined
             });
           }
         }, (error) => {
           handleFirestoreError(error, OperationType.GET, 'chats');
         });
 
-        // Keep provider subscriptions scoped to the authenticated session.
-        (currentUser as any).__skynetProviderCleanup = () => {
-          unsubUser();
-          unsubImages();
-          unsubChat();
-        };
+        sessionCleanups = [unsubUser, unsubImages, unsubChat];
       } else {
         setUser(null);
         setIsAuthenticated(false);
@@ -467,7 +465,10 @@ export default function App() {
       }
       setIsVerifying(false);
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      sessionCleanups.forEach((cleanup) => cleanup());
+    };
   }, []);
   useEffect(() => {
     if (scrollRef.current) {
