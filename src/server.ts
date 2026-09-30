@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Stripe from "stripe";
 import dotenv from "dotenv";
+import { withRetry } from "./lib/retry";
 
 dotenv.config();
 
@@ -45,7 +46,7 @@ async function startServer() {
       const contents = Array.isArray(req.body?.contents) ? req.body.contents : [];
       const runtimeUrl = typeof req.body?.runtimeUrl === "string" ? req.body.runtimeUrl : "";
 
-      const result = await ai.models.generateContent({
+      const result = await withRetry(() => ai.models.generateContent({
         model: "gemini-1.5-flash",
         contents,
         config: {
