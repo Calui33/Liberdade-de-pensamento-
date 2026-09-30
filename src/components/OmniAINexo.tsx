@@ -1226,7 +1226,7 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                       <div className="p-4 bg-green-500/5 border border-green-500/10 rounded-2xl flex flex-col gap-2">
                         <div className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Núcleo Neural</div>
                         <div className="text-[8px] text-green-500/60">Credencial protegida no servidor</div>
-                      </div>button>
+                      </div>
                     </div>
                   </div>
 
