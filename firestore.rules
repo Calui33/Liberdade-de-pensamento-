@@ -108,9 +108,20 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isAuthenticated() && isValidUser(request.resource.data) &&
-                      ((request.resource.data.role == 'user' && request.resource.data.credits == 100) || isAdmin());
-      // Credit balances are server-controlled. Clients cannot mutate their own balance.
-      allow update: if isAdmin();
+                      ((request.resource.data.role == 'user' &&
+                        request.resource.data.credits in [50, 65, 80, 95, 99, 100]) || isAdmin());
+      // Users may only spend credits; they can never increase their balance or alter identity/role fields.
+      allow update: if isAuthenticated() && isOwner(userId) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits']) &&
+                      request.resource.data.credits is number &&
+                      request.resource.data.credits >= 0 &&
+                      (request.resource.data.credits == resource.data.credits - 1 ||
+                       request.resource.data.credits == resource.data.credits - 5 ||
+                       request.resource.data.credits == resource.data.credits - 20 ||
+                       request.resource.data.credits == resource.data.credits - 35 ||
+                       request.resource.data.credits == resource.data.credits - 50 ||
+                       isAdmin()) ||
+                      isAdmin();
       allow delete: if isAdmin();
     }
 
