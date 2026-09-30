@@ -44,7 +44,6 @@ import {
   Activity,
   Image as ImageIconAlt,
   ShieldCheck,
-  CreditCard,
   Plus,
   Github,
   Keyboard,
@@ -690,40 +689,6 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
   const [showVault, setShowVault] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isUpgrading, setIsUpgrading] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleUpgrade = async () => {
-    setIsUpgrading(true);
-    try {
-      const response = await apiFetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error(data.error || "Erro ao iniciar checkout");
-      }
-    } catch (error: any) {
-      console.error("Upgrade Error:", error);
-      alert("Mestre, a conexão com o Stripe falhou. Verifique se a chave STRIPE_SECRET_KEY foi configurada corretamente nas configurações.");
-    } finally {
-      setIsUpgrading(false);
-    }
-  };
 
   // Extract all media from messages
   const vaultAssets = messages.filter(m => m.role === 'model' && (m.text.includes('![Image]') || m.text.includes('![Video]') || m.image));
@@ -865,7 +830,6 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                   </span>
                 </div>
               </div>
-              <button onClick={handleUpgrade} className="p-1.5 hover:bg-purple-600/20 rounded-lg text-purple-500 transition-colors">
                 <Zap size={14} />
               </button>
             </div>
