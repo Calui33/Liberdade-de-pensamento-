@@ -1,5 +1,6 @@
+import { apiFetch } from "./apiFetch";
 export async function generateSurrealText(input: string, isRawMode: boolean): Promise<string> {
-  const response = await fetch("/api/surreal/text", {
+  const response = await apiFetch("/api/surreal/text", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ input, isRawMode }),
   });
@@ -9,7 +10,7 @@ export async function generateSurrealText(input: string, isRawMode: boolean): Pr
 }
 
 export async function generateSurrealVision(textResponse: string, isRawMode: boolean): Promise<string> {
-  const response = await fetch("/api/surreal/image", {
+  const response = await apiFetch("/api/surreal/image", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ textResponse, isRawMode }),
   });
