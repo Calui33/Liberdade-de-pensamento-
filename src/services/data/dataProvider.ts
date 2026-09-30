@@ -43,6 +43,7 @@ export interface DataProvider {
   getImage(id: string): Promise<ImageRecord | null>;
   watchUserImages(uid: string, listener: SnapshotListener<ImageRecord[]>, onError?: (error: unknown) => void): Unsubscribe;
   saveImage(data: Omit<ImageRecord, "id">): Promise<{ id: string }>;
+  getUserImageData(id: string): Promise<string | null>;
 }
 
 /** Firebase/Firestore implementation of the application persistence contract. */
@@ -90,6 +91,10 @@ export const dataProvider: DataProvider = {
       uid,
       updatedAt: serverTimestamp()
     });
+  },
+  async getUserImageData(id) {
+    const snapshot = await getDoc(doc(db, "images", id));
+    return snapshot.exists() ? (snapshot.data().data as string | undefined) || null : null;
   },
   async getImage(id) {
     const snapshot = await getDoc(doc(db, "images", id));
