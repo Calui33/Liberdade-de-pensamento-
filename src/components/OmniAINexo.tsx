@@ -689,6 +689,18 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
   const [showVault, setShowVault] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Extract all media from messages
   const vaultAssets = messages.filter(m => m.role === 'model' && (m.text.includes('![Image]') || m.text.includes('![Video]') || m.image));
