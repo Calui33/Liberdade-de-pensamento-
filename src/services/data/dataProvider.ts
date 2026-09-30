@@ -20,13 +20,13 @@ export const dataProvider: DataProvider = {
   watchUser(uid, listener, onError) {
     return onSnapshot(doc(db, "users", uid), (snapshot) => listener(snapshot.exists() ? snapshot.data() : null), onError);
   },
-  createUser(uid, data) { return setDoc(doc(db, "users", uid), data); },
+  createUser(uid, data) { return setDoc(doc(db, "users", uid), { ...data, createdAt: serverTimestamp() }); },
   updateUser(uid, data) { return updateDoc(doc(db, "users", uid), data); },
   watchLatestChat(uid, listener, onError) {
     const q = query(collection(db, "chats"), where("uid", "==", uid), orderBy("updatedAt", "desc"), limit(1));
     return onSnapshot(q, listener, onError);
   },
-  saveChat(uid, data) { return setDoc(doc(db, "chats", uid), data); },
+  saveChat(uid, data) { return setDoc(doc(db, "chats", uid), { ...data, updatedAt: serverTimestamp() }); },
   async getImage(id) {
     const snapshot = await getDoc(doc(db, "images", id));
     return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
