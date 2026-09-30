@@ -2,7 +2,6 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import Stripe from "stripe";
 import dotenv from "dotenv";
 import firebaseConfig from "../firebase-applet-config.json";
 import { getNeuralProvider } from "./server/providers/neuralProvider";
@@ -16,21 +15,6 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Stripe Initialization (Lazy)
-  let stripe: Stripe | null = null;
-  const getStripe = () => {
-    if (!stripe) {
-      const key = process.env.STRIPE_SECRET_KEY;
-      if (!key) {
-        throw new Error("STRIPE_SECRET_KEY environment variable is missing. Please set it in the Settings menu.");
-      }
-      if (key.startsWith('AIza')) {
-        throw new Error("Invalid Stripe Key: You appear to be using a Google API Key in the STRIPE_SECRET_KEY field. Please use a real Stripe Secret Key (sk_test_... or sk_live_...).");
-      }
-      stripe = new Stripe(key);
-    }
-    return stripe;
-  };
 
   app.use(express.json({ limit: "20mb" }));
 
@@ -353,36 +337,6 @@ async function startServer() {
     }
   });
 
-  // API: Create Stripe Checkout Session
-  app.post("/api/create-checkout-session", async (req, res) => {
-    try {
-      const s = getStripe();
-      const session = await s.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: "OMNI-PRO Neural Subscription",
-                description: "Acesso total e irrestrito à rede neural OMNI-AI.",
-              },
-              unit_amount: 1900, // $19.00
-            },
-            quantity: 1,
-          },
-        ],
-        mode: "payment",
-        success_url: `${process.env.APP_URL || "http://localhost:3000"}/?success=true`,
-        cancel_url: `${process.env.APP_URL || "http://localhost:3000"}/?canceled=true`,
-      });
-
-      res.json({ url: session.url });
-    } catch (error: any) {
-      console.error("Stripe Error:", error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

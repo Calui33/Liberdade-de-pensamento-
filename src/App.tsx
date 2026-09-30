@@ -51,7 +51,6 @@ import {
 } from 'lucide-react';
 
 import Markdown from 'react-markdown';
-import { syncToSupabase } from './components/services/lib/supabase';
 import { enhancePrompt, analyzeNeuralContext, analyzeImage, manusEngineeringAgent } from './components/services/neuralService';
 import { generateOmniResponse } from './services/omniApi';
 import { generateNeuralImage, synthesizeNeuralSpeech } from './services/neuralMediaApi';
@@ -755,14 +754,7 @@ export default function App() {
           createdAt: serverTimestamp()
         });
 
-        // Sync to Supabase for long-term analytics
-        syncToSupabase('neural_images', {
-          id: imgRef.id,
-          uid: user?.uid,
-          prompt: enhancedPrompt,
-          style: neuralStyle,
-          created_at: new Date().toISOString()
-        });
+
 
         const modelMsg: Message = { 
           role: 'model', 
