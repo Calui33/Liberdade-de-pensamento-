@@ -1,4 +1,7 @@
+import dotenv from "dotenv";
 import firebaseConfig from "../../firebase-applet-config.json";
+
+dotenv.config();
 
 export const ownerEmail = (process.env.OWNER_EMAIL || "mcaluissa@gmail.com").trim().toLowerCase();
 
