@@ -31,7 +31,7 @@ async function startServer() {
     return stripe;
   };
 
-  app.use(express.json());
+  app.use(express.json({ limit: "20mb" }));
 
 
   // SKYNET4 OMNI-AI NEXO — server-side Gemini bridge.
