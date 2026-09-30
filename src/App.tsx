@@ -427,14 +427,9 @@ export default function App() {
   useEffect(() => {
     const fetchWisdom = async () => {
       try {
-        const response = await withRetry(() => ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: "Gere uma frase curta, carinhosa e educativa sobre tecnologia e humanidade para um painel de sabedoria diária.",
-          config: {
-            systemInstruction: "Você é a Skynet4 Omni-AI Nexo, o mentor sábio e executor de elite. Seja breve, inspirador, sombrio e sagaz.",
-          }
-        }));
-        setDailyWisdom(response.text || "O conhecimento é a luz que guia a evolução.");
+        const response = await fetch("/api/neural/wisdom", { method: "POST" });
+        const data = await response.json();
+        setDailyWisdom(data.text || "O conhecimento é a luz que guia a evolução.");
       } catch (e) {
         setDailyWisdom("A sabedoria reside na busca constante pelo saber.");
       }
