@@ -64,7 +64,7 @@ export const requireFirebaseAuth = async (req: Request, res: Response, next: Nex
 
 export const requireOwner = (req: Request, res: Response, next: NextFunction) => {
   const email = req.firebaseUser?.email?.trim().toLowerCase() || "";
-  if (!email || email !== ownerEmail) {
+  if (!email || email !== ownerEmail || req.firebaseUser?.emailVerified !== true) {
     return res.status(403).json({ error: "Esta instância da SKYNET4 é privada e pertence ao proprietário autorizado." });
   }
   next();
