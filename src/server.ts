@@ -63,6 +63,90 @@ async function startServer() {
     }
   });
 
+  // SKYNET4 neural specialist capabilities — server-side extraction.
+  app.post("/api/neural/enhance", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+      const style = typeof req.body?.style === "string" ? req.body.style : "surrealist";
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{ role: "user", parts: [{ text: `Enhance this image prompt for a ${style} style. Be descriptive and artistic. Prompt: ${prompt}` }] }],
+        config: { maxOutputTokens: 500 },
+      }));
+      res.json({ text: result.text || prompt });
+    } catch (error: any) {
+      console.error("Prompt enhancement failed:", error);
+      res.status(500).json({ error: error?.message || "Prompt enhancement failed." });
+    }
+  });
+
+  app.post("/api/neural/context", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+      const history = messages.slice(-10).map((m: any) => `${m.role}: ${m.text}`).join("\\n");
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{ role: "user", parts: [{ text: `Analyze this conversation context and provide a brief neural insight (max 2 sentences): \\n${history}` }] }],
+        config: { maxOutputTokens: 200 },
+      }));
+      res.json({ text: result.text || "Neural synchronization stable." });
+    } catch (error: any) {
+      console.error("Neural analysis failed:", error);
+      res.status(500).json({ error: error?.message || "Neural analysis failed." });
+    }
+  });
+
+  app.post("/api/neural/image", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const base64 = typeof req.body?.base64 === "string" ? req.body.base64 : "";
+      const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { data: base64, mimeType: "image/jpeg" } }] }],
+        config: { maxOutputTokens: 2048 },
+      }));
+      res.json({ text: result.text || "" });
+    } catch (error: any) {
+      console.error("Image analysis failed:", error);
+      res.status(500).json({ error: error?.message || "Image analysis failed." });
+    }
+  });
+
+  app.post("/api/neural/manus", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const request = typeof req.body?.request === "string" ? req.body.request : "";
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-1.5-pro",
+        contents: [{ role: "user", parts: [{ text: `Você é o Manus AI Engineering Module. Sua tarefa é resolver problemas de engenharia complexos.
+          Analise o seguinte pedido, decomponha em tarefas, projete a arquitetura e forneça o código ou solução técnica necessária.
+          Seja extremamente técnico, preciso e eficiente.
+          
+          Pedido: ${request}` }] }],
+        config: { temperature: 0.2, topP: 0.8, topK: 40, maxOutputTokens: 8192 },
+      }));
+      res.json({ text: result.text || "" });
+    } catch (error: any) {
+      console.error("Manus Engineering Error:", error);
+      res.status(500).json({ error: error?.message || "Manus Engineering Error." });
+    }
+  });
+
   // GitHub API Proxy
   app.all("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
