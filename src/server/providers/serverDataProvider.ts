@@ -1,13 +1,29 @@
 import { firestoreBase } from "../runtimeConfig";
 
+export type FirestoreValue = {
+  stringValue?: string;
+  integerValue?: string;
+  doubleValue?: number;
+  booleanValue?: boolean;
+  timestampValue?: string;
+  nullValue?: "NULL_VALUE";
+  bytesValue?: string;
+  referenceValue?: string;
+  geoPointValue?: { latitude: number; longitude: number };
+  arrayValue?: { values?: FirestoreValue[] };
+  mapValue?: { fields?: Record<string, FirestoreValue> };
+};
+
+export type FirestoreFields = Record<string, FirestoreValue>;
+
 export type ServerUserDocument = {
-  fields?: Record<string, any>;
+  fields?: FirestoreFields;
   updateTime?: string;
 };
 
 export interface ServerDataProvider {
   getUser(uid: string, token: string): Promise<{ status: number; document?: ServerUserDocument }>;
-  createUser(uid: string, token: string, fields: Record<string, any>): Promise<{ status: number }>;
+  createUser(uid: string, token: string, fields: FirestoreFields): Promise<{ status: number }>;
   updateUserCredits(uid: string, token: string, credits: number, updateTime: string): Promise<{ status: number }>;
 }
 
@@ -16,7 +32,7 @@ export const serverDataProvider: ServerDataProvider = {
     const response = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    return { status: response.status, document: response.ok ? await response.json() : undefined };
+    return { status: response.status, document: response.ok ? await response.json() as ServerUserDocument : undefined };
   },
 
   async createUser(uid, token, fields) {

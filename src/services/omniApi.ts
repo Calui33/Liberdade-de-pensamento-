@@ -1,7 +1,16 @@
 import { apiFetch } from "./apiFetch";
+
+export type OmniPart = {
+  text?: string;
+  inlineData?: {
+    data: string;
+    mimeType: string;
+  };
+};
+
 export type OmniMessage = {
   role: "user" | "model";
-  parts: Array<Record<string, any>>;
+  parts: OmniPart[];
 };
 
 export async function generateOmniResponse(
@@ -14,9 +23,9 @@ export async function generateOmniResponse(
     body: JSON.stringify({ contents, runtimeUrl }),
   });
 
-  const data = await response.json();
+  const data = await response.json() as { text?: string; error?: string };
   if (!response.ok) {
-    throw new Error(data?.error || "OMNI neural core unavailable");
+    throw new Error(data.error || "OMNI neural core unavailable");
   }
 
   return data.text || "Erro ao processar resposta.";
