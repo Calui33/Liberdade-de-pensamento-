@@ -1,11 +1,17 @@
 import { GoogleGenAI, Modality } from "@google/genai";
+import type { Content } from "@google/genai";
 import { withRetry } from "../../lib/retry";
 import { geminiApiKey } from "../runtimeConfig";
 
+export type NeuralMessage = {
+  role: string;
+  text: string;
+};
+
 export type NeuralProvider = {
-  omniChat(contents: any[], runtimeUrl: string): Promise<string>;
+  omniChat(contents: Content[], runtimeUrl: string): Promise<string>;
   enhancePrompt(prompt: string, style: string): Promise<string>;
-  analyzeContext(messages: any[]): Promise<string>;
+  analyzeContext(messages: NeuralMessage[]): Promise<string>;
   analyzeImage(base64: string, prompt: string): Promise<string>;
   manus(request: string): Promise<string>;
   generateImage(prompt: string, imageSize: "1K" | "2K" | "4K"): Promise<string>;
@@ -19,9 +25,9 @@ export type NeuralProvider = {
     aspectRatio: "16:9" | "9:16",
     resolution: "720p" | "1080p"
   ): Promise<string>;
-  neuralMap(contents: any[], searchQuery: string, latLng: { latitude: number; longitude: number }): Promise<{
+  neuralMap(contents: Content[], searchQuery: string, latLng: { latitude: number; longitude: number }): Promise<{
     text: string;
-    chunks: any[];
+    chunks: unknown[];
   }>;
 };
 
@@ -60,7 +66,7 @@ const createGoogleProvider = (): NeuralProvider => {
     },
 
     async analyzeContext(messages) {
-      const history = messages.slice(-10).map((m: any) => `${m.role}: ${m.text}`).join("\\n");
+      const history = messages.slice(-10).map((m) => `${m.role}: ${m.text}`).join("\\n");
       const result = await withRetry(() => ai().models.generateContent({
         model: "gemini-1.5-flash",
         contents: [{ role: "user", parts: [{ text: `Analyze this conversation context and provide a brief neural insight (max 2 sentences): \\n${history}` }] }],
@@ -97,7 +103,7 @@ const createGoogleProvider = (): NeuralProvider => {
         contents: { parts: [{ text: prompt }] },
         config: { imageConfig: { imageSize, aspectRatio: "1:1" } },
       }));
-      return result.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data || "";
+      return result.candidates?.[0]?.content?.parts?.find((part) => part.inlineData)?.inlineData?.data || "";
     },
 
     async synthesizeSpeech(instruction, text, voiceName) {
@@ -131,7 +137,7 @@ const createGoogleProvider = (): NeuralProvider => {
         contents: `Uma representação visual ${isRawMode ? "BRUTA, CAÓTICA, SEM FILTROS" : "surrealista, abstrata e cinematográfica"} em tons de ouro, violeta e preto profundo sobre: ${textResponse}. Estilo 4k, hiper-detalhado, místico.`,
         config: { imageConfig: { aspectRatio: "16:9" } },
       }));
-      return result.candidates?.[0]?.content?.parts?.find((part: any) => part.inlineData)?.inlineData?.data || "";
+      return result.candidates?.[0]?.content?.parts?.find((part) => part.inlineData)?.inlineData?.data || "";
     },
 
     async dailyWisdom() {
