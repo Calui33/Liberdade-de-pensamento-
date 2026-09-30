@@ -413,8 +413,7 @@ export default function App() {
               uid: currentUser.uid,
               email: currentUser.email,
               credits: 100,
-              role: currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user',
-              createdAt: undefined
+              role: currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user'
             };
             dataProvider.createUser(currentUser.uid, newUser).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
           }
@@ -449,8 +448,7 @@ export default function App() {
             setMessages(initial);
             await dataProvider.saveChat(currentUser.uid, {
               uid: currentUser.uid,
-              messages: initial,
-              updatedAt: undefined
+              messages: initial
             });
           }
         }, (error) => {
@@ -504,7 +502,7 @@ export default function App() {
     if (!user) return;
     const path = `chats/${user.uid}`;
     try {
-      // Strip large base64 data before saving to Firestore to stay under 1MB limit
+      // Strip large base64 data before saving to Firestore to stay within the persistence document limit
       const messagesToSave = newMessages.map(m => {
         if (m.image && m.image.startsWith('data:')) {
           const { image, ...rest } = m;
