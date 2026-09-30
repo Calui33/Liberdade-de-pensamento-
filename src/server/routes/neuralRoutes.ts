@@ -7,7 +7,7 @@ export function createNeuralRouter() {
 
   // SKYNET4 OMNI-AI NEXO — server-side Gemini bridge.
   // Personality/configuration is intentionally kept identical to the protected contract.
-  app.post("/api/omni/chat", async (req, res) => {
+  router.post("/omni/chat", async (req, res) => {
     try {
       const credit = await consumeCredits(req, 1);
       if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
@@ -23,7 +23,7 @@ export function createNeuralRouter() {
   });
 
   // SKYNET4 neural specialist capabilities — server-side extraction.
-  app.post("/api/neural/enhance", async (req, res) => {
+  router.post("/neural/enhance", async (req, res) => {
     try {
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
       const style = typeof req.body?.style === "string" ? req.body.style : "surrealist";
@@ -34,7 +34,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/context", async (req, res) => {
+  router.post("/neural/context", async (req, res) => {
     try {
       const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
       res.json({ text: await getNeuralProvider().analyzeContext(messages) });
@@ -44,7 +44,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/image", async (req, res) => {
+  router.post("/neural/image", async (req, res) => {
     try {
       const base64 = typeof req.body?.base64 === "string" ? req.body.base64 : "";
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
@@ -55,7 +55,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/manus", async (req, res) => {
+  router.post("/neural/manus", async (req, res) => {
     try {
       const request = typeof req.body?.request === "string" ? req.body.request : "";
       res.json({ text: await getNeuralProvider().manus(request) });
@@ -65,7 +65,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/image-generate", async (req, res) => {
+  router.post("/neural/image-generate", async (req, res) => {
     try {
       const credit = await consumeCredits(req, 5);
       if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
@@ -78,7 +78,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/tts", async (req, res) => {
+  router.post("/neural/tts", async (req, res) => {
     try {
       const instruction = typeof req.body?.instruction === "string" ? req.body.instruction : "";
       const text = typeof req.body?.text === "string" ? req.body.text : "";
@@ -90,7 +90,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/surreal/text", async (req, res) => {
+  router.post("/surreal/text", async (req, res) => {
     try {
       const input = typeof req.body?.input === "string" ? req.body.input : "";
       const isRawMode = Boolean(req.body?.isRawMode);
@@ -101,7 +101,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/surreal/image", async (req, res) => {
+  router.post("/surreal/image", async (req, res) => {
     try {
       const textResponse = typeof req.body?.textResponse === "string" ? req.body.textResponse : "";
       const isRawMode = Boolean(req.body?.isRawMode);
@@ -112,7 +112,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/wisdom", async (_req, res) => {
+  router.post("/neural/wisdom", async (_req, res) => {
     try {
       res.json({ text: await getNeuralProvider().dailyWisdom() });
     } catch (error: any) {
@@ -121,7 +121,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/video", async (req, res) => {
+  router.post("/neural/video", async (req, res) => {
     try {
       const duration = ([5, 10, 15].includes(Number(req.body?.duration)) ? Number(req.body.duration) : 5) as 5 | 10 | 15;
       const cost = duration >= 15 ? 50 : (duration >= 10 ? 35 : 20);
@@ -140,7 +140,7 @@ export function createNeuralRouter() {
     }
   });
 
-  app.post("/api/neural/map", async (req, res) => {
+  router.post("/neural/map", async (req, res) => {
     try {
       const contents = Array.isArray(req.body?.contents) ? req.body.contents : [];
       const searchQuery = typeof req.body?.searchQuery === "string" ? req.body.searchQuery : "";
