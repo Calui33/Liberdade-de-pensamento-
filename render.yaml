@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: skynet4-omni-ai
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: OWNER_EMAIL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: GITHUB_PAT
+        sync: false
+      - key: GITHUB_ALLOWED_REPO
+        value: Calui33/Liberdade-de-pensamento-
