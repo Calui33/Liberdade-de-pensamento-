@@ -3,8 +3,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import firebaseConfig from "../firebase-applet-config.json";
 import { getNeuralProvider } from "./server/providers/neuralProvider";
+import { firebaseApiKey, firestoreBase, githubAllowedRepo, githubPat, ownerEmail } from "./server/runtimeConfig";
 
 dotenv.config();
 
@@ -18,7 +18,6 @@ async function startServer() {
 
   app.use(express.json({ limit: "20mb" }));
 
-  const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey;
   const authCache = new Map<string, { user: any; expiresAt: number }>();
 
   const requireFirebaseAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -54,8 +53,6 @@ async function startServer() {
     }
   };
 
-  const ownerEmail = (process.env.OWNER_EMAIL || "mcaluissa@gmail.com").trim().toLowerCase();
-
   const requireOwner = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const firebaseUser = (req as any).firebaseUser;
     const email = typeof firebaseUser?.email === "string" ? firebaseUser.email.trim().toLowerCase() : "";
@@ -69,8 +66,7 @@ async function startServer() {
   // Only the configured owner may access the private API surface.
   app.use("/api", requireFirebaseAuth, requireOwner);
 
-  const firestoreBase = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents`;
-  const CREDIT_COSTS = new Set([1, 5, 20, 35, 50]);
+    const CREDIT_COSTS = new Set([1, 5, 20, 35, 50]);
 
   const consumeCredits = async (req: express.Request, amount: number): Promise<{ ok: boolean; credits?: number; error?: string }> => {
     if (!CREDIT_COSTS.has(amount)) return { ok: false, error: "Custo de crédito inválido." };
@@ -80,7 +76,7 @@ async function startServer() {
     const uid = firebaseUser?.localId;
     if (!uid || !token) return { ok: false, error: "Autenticação necessária." };
 
-    if (firebaseUser.email?.toLowerCase() === "mcaluissa@gmail.com") {
+    if (firebaseUser.email?.trim().toLowerCase() === ownerEmail) {
       return { ok: true, credits: 999999 };
     }
 
@@ -303,7 +299,7 @@ async function startServer() {
 
   // GitHub API Proxy — authenticated, read-only, allowlisted.
   app.get("/api/github/*", async (req, res) => {
-    const pat = process.env.GITHUB_PAT;
+    const pat = githubPat;
     if (!pat) {
       return res.status(401).json({ 
         error: "GITHUB_PAT não configurado. Por favor, adicione seu Personal Access Token do GitHub nas configurações." 
@@ -311,7 +307,7 @@ async function startServer() {
     }
 
     const githubPath = req.params[0];
-    const allowedRepo = process.env.GITHUB_ALLOWED_REPO || "Calui33/Liberdade-de-pensamento-";
+    const allowedRepo = githubAllowedRepo;
     const allowedPrefix = `repos/${allowedRepo}/`;
     if (!githubPath.startsWith(allowedPrefix) && !githubPath.startsWith("users/")) {
       return res.status(403).json({ error: "Rota GitHub não autorizada." });

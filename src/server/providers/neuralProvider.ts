@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { withRetry } from "../../lib/retry";
+import { geminiApiKey } from "../runtimeConfig";
 
 export type NeuralProvider = {
   omniChat(contents: any[], runtimeUrl: string): Promise<string>;
@@ -24,7 +25,7 @@ export type NeuralProvider = {
   }>;
 };
 
-const getApiKey = () => process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+const getApiKey = () => geminiApiKey;
 
 const createGoogleProvider = (): NeuralProvider => {
   const requireKey = () => {
