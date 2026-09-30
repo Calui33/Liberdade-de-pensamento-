@@ -49,12 +49,13 @@ import {
   User as UserIcon,
   Infinity as InfinityIcon
 } from 'lucide-react';
-import { GoogleGenAI, Modality } from "@google/genai";
+
 import { withRetry } from './lib/retry';
 import Markdown from 'react-markdown';
 import { syncToSupabase } from './components/services/lib/supabase';
 import { enhancePrompt, analyzeNeuralContext, analyzeImage, manusEngineeringAgent } from './components/services/neuralService';
 import { generateOmniResponse } from './services/omniApi';
+import { generateNeuralImage, synthesizeNeuralSpeech } from './services/neuralMediaApi';
 import SurrealHero from './components/SurrealHero';
 import OmniAINexo from './components/OmniAINexo';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -611,34 +612,19 @@ export default function App() {
     
     try {
       const config = voiceConfigs[voiceProfile];
-      const localAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       // Clean text for better TTS (remove markdown and excessive symbols)
       const cleanText = text
-        .replace(/\*\*/g, '')
-        .replace(/\*/g, '')
+        .replace(/\\*\\*/g, '')
+        .replace(/\\*/g, '')
         .replace(/#/g, '')
-        .replace(/\[.*?\]\(.*?\)/g, '') // remove links
-        .replace(/`{3}[\s\S]*?`{3}/g, '[Código omitido]') // skip code blocks
-        .replace(/`.*?`/g, '') // remove inline code
-        .replace(/[-_]{3,}/g, '') // remove dividers
+        .replace(/\\[.*?\\]\\(.*?\\)/g, '')
+        .replace(/\`{3}[\\s\\S]*?\`{3}/g, '[Código omitido]')
+        .replace(/\`.*?\`/g, '')
+        .replace(/[-_]{3,}/g, '')
         .trim();
 
-      // Remove character limits for TTS (removed .slice(0, 4000))
-      const limitedText = cleanText;
-
-      const response = await withRetry(() => localAi.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `${config.instruction}${limitedText}` }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: config.voiceName } },
-          },
-        },
-      }));
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const base64Audio = await synthesizeNeuralSpeech(config.instruction, cleanText, config.voiceName);      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
         const binaryString = atob(base64Audio);
         const len = binaryString.length;
@@ -891,24 +877,7 @@ export default function App() {
       console.log("Enhanced Prompt:", enhancedPrompt);
       setIsEnhancing(false);
 
-      const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-3.1-flash-image-preview',
-        contents: {
-          parts: [
-            {
-              text: enhancedPrompt,
-            },
-          ],
-        },
-        config: {
-          imageConfig: {
-            imageSize: imageSize,
-            aspectRatio: "1:1"
-          }
-        }
-      }));
-
-      let imageData = "";
+      const imageData = await generateNeuralImage(enhancedPrompt, imageSize);      let imageData = "";
       if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
           if (part.inlineData) {
