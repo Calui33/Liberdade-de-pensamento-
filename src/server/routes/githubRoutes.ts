@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { githubAllowedRepo, githubPat } from "../runtimeConfig";
+import { publicServerError } from "../utils/publicServerError";
 
 export function createGitHubRouter() {
   const router = Router();
@@ -42,10 +43,9 @@ export function createGitHubRouter() {
 
       const data = await response.json();
       res.status(response.status).json(data);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("GitHub Proxy Error:", message);
-      res.status(500).json({ error: message });
+    } catch (error: unknown) {
+      console.error("GitHub Proxy Error:", error);
+      res.status(500).json(publicServerError("GitHub proxy unavailable."));
     }
   });
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getNeuralProvider } from "../providers/neuralProvider";
 import { consumeCredits } from "../services/creditsService";
+import { publicServerError } from "../utils/publicServerError";
 
 export function createNeuralRouter() {
   const router = Router();
@@ -16,9 +17,9 @@ export function createNeuralRouter() {
         typeof req.body?.runtimeUrl === "string" ? req.body.runtimeUrl : ""
       );
       res.json({ text });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("OMNI neural provider error:", error);
-      res.status(500).json({ error: error?.message || "Falha no núcleo neural." });
+      res.status(500).json(publicServerError("Falha no núcleo neural."));
     }
   });
 
@@ -28,9 +29,9 @@ export function createNeuralRouter() {
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
       const style = typeof req.body?.style === "string" ? req.body.style : "surrealist";
       res.json({ text: await getNeuralProvider().enhancePrompt(prompt, style) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Prompt enhancement failed:", error);
-      res.status(500).json({ error: error?.message || "Prompt enhancement failed." });
+      res.status(500).json(publicServerError("Prompt enhancement failed."));
     }
   });
 
@@ -38,9 +39,9 @@ export function createNeuralRouter() {
     try {
       const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
       res.json({ text: await getNeuralProvider().analyzeContext(messages) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Neural analysis failed:", error);
-      res.status(500).json({ error: error?.message || "Neural analysis failed." });
+      res.status(500).json(publicServerError("Neural analysis failed."));
     }
   });
 
@@ -49,9 +50,9 @@ export function createNeuralRouter() {
       const base64 = typeof req.body?.base64 === "string" ? req.body.base64 : "";
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
       res.json({ text: await getNeuralProvider().analyzeImage(base64, prompt) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Image analysis failed:", error);
-      res.status(500).json({ error: error?.message || "Image analysis failed." });
+      res.status(500).json(publicServerError("Image analysis failed."));
     }
   });
 
@@ -59,9 +60,9 @@ export function createNeuralRouter() {
     try {
       const request = typeof req.body?.request === "string" ? req.body.request : "";
       res.json({ text: await getNeuralProvider().manus(request) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Manus Engineering Error:", error);
-      res.status(500).json({ error: error?.message || "Manus Engineering Error." });
+      res.status(500).json(publicServerError("Manus Engineering Error."));
     }
   });
 
@@ -72,9 +73,9 @@ export function createNeuralRouter() {
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
       const imageSize = ["1K", "2K", "4K"].includes(req.body?.imageSize) ? req.body.imageSize : "1K";
       res.json({ imageData: await getNeuralProvider().generateImage(prompt, imageSize) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Image generation failed:", error);
-      res.status(500).json({ error: error?.message || "Image generation failed." });
+      res.status(500).json(publicServerError("Image generation failed."));
     }
   });
 
@@ -84,9 +85,9 @@ export function createNeuralRouter() {
       const text = typeof req.body?.text === "string" ? req.body.text : "";
       const voiceName = typeof req.body?.voiceName === "string" ? req.body.voiceName : "Zephyr";
       res.json({ audioData: await getNeuralProvider().synthesizeSpeech(instruction, text, voiceName) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("TTS failed:", error);
-      res.status(500).json({ error: error?.message || "TTS generation failed." });
+      res.status(500).json(publicServerError("TTS generation failed."));
     }
   });
 
@@ -95,9 +96,9 @@ export function createNeuralRouter() {
       const input = typeof req.body?.input === "string" ? req.body.input : "";
       const isRawMode = Boolean(req.body?.isRawMode);
       res.json({ text: await getNeuralProvider().surrealText(input, isRawMode) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Surreal text failed:", error);
-      res.status(500).json({ error: error?.message || "Surreal text failed." });
+      res.status(500).json(publicServerError("Surreal text failed."));
     }
   });
 
@@ -106,16 +107,16 @@ export function createNeuralRouter() {
       const textResponse = typeof req.body?.textResponse === "string" ? req.body.textResponse : "";
       const isRawMode = Boolean(req.body?.isRawMode);
       res.json({ imageData: await getNeuralProvider().surrealImage(textResponse, isRawMode) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Surreal image failed:", error);
-      res.status(500).json({ error: error?.message || "Surreal image failed." });
+      res.status(500).json(publicServerError("Surreal image failed."));
     }
   });
 
   router.post("/neural/wisdom", async (_req, res) => {
     try {
       res.json({ text: await getNeuralProvider().dailyWisdom() });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Daily wisdom failed:", error);
       res.json({ text: "A sabedoria reside na busca constante pelo saber." });
     }
@@ -134,9 +135,9 @@ export function createNeuralRouter() {
       res.json({
         videoData: await getNeuralProvider().generateVideo(prompt, duration, aspectRatio, resolution)
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Video generation failed:", error);
-      res.status(500).json({ error: error?.message || "Video generation failed." });
+      res.status(500).json(publicServerError("Video generation failed."));
     }
   });
 
@@ -146,12 +147,11 @@ export function createNeuralRouter() {
       const searchQuery = typeof req.body?.searchQuery === "string" ? req.body.searchQuery : "";
       const latLng = req.body?.latLng || { latitude: -23.5505, longitude: -46.6333 };
       res.json(await getNeuralProvider().neuralMap(contents, searchQuery, latLng));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Map neural search failed:", error);
-      res.status(500).json({ error: error?.message || "Map neural search failed." });
+      res.status(500).json(publicServerError("Map neural search failed."));
     }
   });
-
 
   return router;
 }
