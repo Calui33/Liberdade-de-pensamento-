@@ -1,12 +1,18 @@
 import { apiFetch } from "../../services/apiFetch";
+
+export type NeuralContextMessage = {
+  role: "user" | "model";
+  text: string;
+};
+
 const postNeural = async (path: string, body: Record<string, unknown>): Promise<string> => {
   const response = await apiFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error || "Neural specialist unavailable");
+  const data = await response.json() as { text?: string; error?: string };
+  if (!response.ok) throw new Error(data.error || "Neural specialist unavailable");
   return data.text || "";
 };
 
@@ -21,7 +27,7 @@ export async function enhancePrompt(prompt: string, style: string = "surrealist"
 }
 
 /** Analyzes a conversation to provide neural insights. */
-export async function analyzeNeuralContext(messages: any[]): Promise<string> {
+export async function analyzeNeuralContext(messages: NeuralContextMessage[]): Promise<string> {
   try {
     return await postNeural("/api/neural/context", { messages });
   } catch (error) {
