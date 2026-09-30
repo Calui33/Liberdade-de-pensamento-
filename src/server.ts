@@ -70,7 +70,20 @@ async function startServer() {
     }
   };
 
-  app.use("/api", requireFirebaseAuth);
+  const ownerEmail = (process.env.OWNER_EMAIL || "mcaluissa@gmail.com").trim().toLowerCase();
+
+  const requireOwner = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const firebaseUser = (req as any).firebaseUser;
+    const email = typeof firebaseUser?.email === "string" ? firebaseUser.email.trim().toLowerCase() : "";
+    if (!email || email !== ownerEmail) {
+      return res.status(403).json({ error: "Esta instância da SKYNET4 é privada e pertence ao proprietário autorizado." });
+    }
+    next();
+  };
+
+  // SKYNET4 is a personal instance: authentication alone is not enough.
+  // Only the configured owner may access the private API surface.
+  app.use("/api", requireFirebaseAuth, requireOwner);
 
   const firestoreBase = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents`;
   const CREDIT_COSTS = new Set([1, 5, 20, 35, 50]);

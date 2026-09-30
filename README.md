@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# SKYNET4 OMNI-AI NEXO
 
-# Run and deploy your AI Studio app
+Personal standalone instance of the SKYNET4 OMNI-AI Nexo.
 
-This contains everything you need to run your app locally.
+The extraction from Google AI Studio is complete: the AI Studio runtime dependency was removed from the application, while the protected personality contract and model configuration remain intact.
 
-View your app in AI Studio: https://ai.studio/apps/51faae8e-1d5d-4393-a3bc-cf17bc6978cc
+## Architecture
 
-## Run Locally
+- **Owner-only:** the API accepts authenticated requests only from the configured owner account.
+- **Server-side AI credentials:** Gemini credentials are kept on the server and are not injected into the browser bundle.
+- **Personal infrastructure:** Firebase provides authentication and persistence; Gemini provides the neural capabilities.
+- **Personality preservation:** identity prompts, specialist prompts, modes, models and generation parameters are treated as protected project behavior.
 
-**Prerequisites:**  Node.js
+## Run locally
 
+**Prerequisites:** Node.js 22+
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Configure the server environment using `.env.local` (see `.env.example`).
+3. Set the Firebase API key, owner email and server-side `GEMINI_API_KEY`.
+4. Run:
    `npm run dev`
+
+The development server runs the standalone application and its authenticated API on port 3000.
+
+## Protected personality contract
+
+See `docs/SKYNET4-PERSONALITY-CONTRACT.md` before changing any prompt, model, temperature, tool or token-limit configuration. Changes to those elements should be deliberate and reviewed separately from infrastructure work.
