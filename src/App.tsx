@@ -403,7 +403,7 @@ export default function App() {
 
         const unsubUser = dataProvider.watchUser(currentUser.uid, (data) => {
           if (data) {
-            if (currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' || data.role === 'admin') {
+            if (currentUser.email?.toLowerCase() === 'setecentistaquero@gmail.com' || data.role === 'admin') {
               setCredits(999999);
             } else {
               setCredits(data.credits || 0);
@@ -413,7 +413,7 @@ export default function App() {
               uid: currentUser.uid,
               email: currentUser.email,
               credits: 100,
-              role: currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user'
+              role: currentUser.email?.toLowerCase() === 'setecentistaquero@gmail.com' ? 'admin' : 'user'
             };
             dataProvider.createUser(currentUser.uid, newUser).catch(err => handlePersistenceError(err, PersistenceOperationType.WRITE, `users/${currentUser.uid}`));
           }
@@ -1100,7 +1100,7 @@ export default function App() {
     try {
       await dataProvider.updateUser(activeUser.uid, {
         credits: 999999,
-        role: activeUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user'
+        role: activeUser.email?.toLowerCase() === 'setecentistaquero@gmail.com' ? 'admin' : 'user'
       });
       setCredits(999999);
       sounds.playSuccess();

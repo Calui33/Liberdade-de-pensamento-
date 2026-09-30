@@ -51,7 +51,7 @@ service cloud.firestore {
     // This is a single-owner application, not a multi-user SaaS.
     function isOwnerAccount() {
       return isAuthenticated() &&
-        request.auth.token.email == "mcaluissa@gmail.com" &&
+        request.auth.token.email == "setecentistaquero@gmail.com" &&
         request.auth.token.email_verified == true;
     }
 
