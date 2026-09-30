@@ -706,7 +706,10 @@ export default function App() {
       const videoData = await generateNeuralVideo(prompt, duration, aspectRatio, resolution);
       setVideoProgress("Preparando manifestação visual...");
       if (videoData) {
-        const videoUrl = `data:video/mp4;base64,${videoData}`;
+        const binary = atob(videoData);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const videoUrl = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
         const newMsg: Message = { 
           role: 'model', 
           text: `🎥 **Vídeo de ${duration >= 15 ? '15' : '5'} Segundos Gerado com Sucesso.**\\n\\n![Video](${videoUrl})` 
