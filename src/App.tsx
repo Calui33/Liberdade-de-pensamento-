@@ -63,8 +63,6 @@ import OnboardingFlow from './components/OnboardingFlow';
 import { authProvider, AuthUser } from './services/auth/authProvider';
 import { dataProvider } from './services/data/dataProvider';
 
-const { auth, googleProvider, signInWithPopup, onAuthStateChanged } = authProvider;
-const { db, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, orderBy, limit, addDoc, serverTimestamp, Timestamp } = dataProvider;
 type User = AuthUser;
 
 // Initialize Gemini
@@ -200,12 +198,12 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
+      userId: authProvider.getCurrentUser()?.uid,
+      email: authProvider.getCurrentUser()?.email,
+      emailVerified: authProvider.getCurrentUser()?.emailVerified,
+      isAnonymous: authProvider.getCurrentUser()?.isAnonymous,
+      tenantId: authProvider.getCurrentUser()?.tenantId,
+      providerInfo: authProvider.getCurrentUser()?.providerData.map(provider => ({
         providerId: provider.providerId,
         displayName: provider.displayName,
         email: provider.email,
@@ -395,65 +393,47 @@ export default function App() {
 
   // Auth & Sync
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = authProvider.subscribe(async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         setIsAuthenticated(true);
-        
-        // Sync User Profile
-        const userRef = doc(db, 'users', currentUser.uid);
-        
-        // Listen to user document for credits and role
-        const unsubUser = onSnapshot(userRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            // Enforce admin role and high credits for Master in state
+
+        const unsubUser = dataProvider.watchUser(currentUser.uid, (data) => {
+          if (data) {
             if (currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' || data.role === 'admin') {
               setCredits(999999);
             } else {
               setCredits(data.credits || 0);
             }
           } else {
-            // Create new user if doesn't exist
             const newUser = {
               uid: currentUser.uid,
               email: currentUser.email,
-              credits: 100, // Initial credits
+              credits: 100,
               role: currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user',
-              createdAt: serverTimestamp()
+              createdAt: new Date()
             };
-            setDoc(userRef, newUser).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
+            dataProvider.createUser(currentUser.uid, newUser).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`));
           }
         }, (error) => {
           handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
         });
 
-        // Load User Images
-        const imgQuery = query(collection(db, 'images'), where('uid', '==', currentUser.uid), orderBy('createdAt', 'desc'), limit(20));
-        onSnapshot(imgQuery, (snapshot) => {
-          const imgs = snapshot.docs.map(doc => ({
-            id: doc.id,
-            data: doc.data().data,
-            prompt: doc.data().prompt
-          }));
-          setUserImages(imgs);
+        const unsubImages = dataProvider.watchUserImages(currentUser.uid, (imgs) => {
+          setUserImages(imgs.map((image: any) => ({ id: image.id, data: image.data, prompt: image.prompt })));
         }, (error) => {
           console.error("Error fetching images", error);
         });
-        const q = query(collection(db, 'chats'), where('uid', '==', currentUser.uid), orderBy('updatedAt', 'desc'), limit(1));
-        onSnapshot(q, async (snapshot) => {
+
+        const unsubChat = dataProvider.watchLatestChat(currentUser.uid, async (snapshot) => {
           if (!snapshot.empty) {
             const chatData = snapshot.docs[0].data();
             const existingMessages = chatData.messages as Message[];
-            
-            // Fetch images for messages that have imageId but no image data
             const messagesWithImages = await Promise.all(existingMessages.map(async (m) => {
               if ((m as any).imageId && !m.image) {
                 try {
-                  const imgSnap = await getDoc(doc(db, 'images', (m as any).imageId));
-                  if (imgSnap.exists()) {
-                    return { ...m, image: imgSnap.data().data };
-                  }
+                  const image = await dataProvider.getImage((m as any).imageId);
+                  if (image) return { ...m, image: image.data };
                 } catch (e) {
                   console.error("Error fetching image", e);
                 }
@@ -462,20 +442,24 @@ export default function App() {
             }));
             setMessages(messagesWithImages);
           } else {
-            // Create first chat
-            const initial: Message[] = [{ role: 'model', text: "🌌 **SKYNET4 OMNI-AI NEXO RESTAURADO**\n\nSincronização neural restabelecida, Mestre. O Projeto Calui33 continua." }];
+            const initial: Message[] = [{ role: 'model', text: "🌌 **SKYNET4 OMNI-AI NEXO RESTAURADO**\\n\\nSincronização neural restabelecida, Mestre. O Projeto Calui33 continua." }];
             setMessages(initial);
-            const chatRef = doc(db, 'chats', currentUser.uid);
-            await setDoc(chatRef, {
+            await dataProvider.saveChat(currentUser.uid, {
               uid: currentUser.uid,
               messages: initial,
-              updatedAt: serverTimestamp()
+              updatedAt: new Date()
             });
           }
         }, (error) => {
           handleFirestoreError(error, OperationType.GET, 'chats');
         });
 
+        // Keep provider subscriptions scoped to the authenticated session.
+        (currentUser as any).__skynetProviderCleanup = () => {
+          unsubUser();
+          unsubImages();
+          unsubChat();
+        };
       } else {
         setUser(null);
         setIsAuthenticated(false);
@@ -485,7 +469,6 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
-
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -495,7 +478,7 @@ export default function App() {
   const handleLogin = async () => {
     try {
       sounds.playBip(660);
-      await signInWithPopup(auth, googleProvider);
+      await authProvider.signInWithGoogle();
       sounds.playSuccess();
     } catch (error: any) {
       sounds.playError();
@@ -513,7 +496,7 @@ export default function App() {
 
   const handleLogout = () => {
     sounds.playBip(440, 'sawtooth');
-    auth.signOut();
+    authProvider.signOut();
   };
 
   const saveChat = async (newMessages: Message[]) => {
@@ -529,11 +512,10 @@ export default function App() {
         return m;
       });
 
-      const chatRef = doc(db, 'chats', user.uid);
-      await setDoc(chatRef, {
+      await dataProvider.saveChat(user.uid, {
         uid: user.uid,
         messages: messagesToSave,
-        updatedAt: serverTimestamp()
+        updatedAt: new Date()
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
@@ -728,13 +710,12 @@ export default function App() {
         const imageUrl = `data:image/png;base64,${imageData}`;
         
         // Save image to separate collection
-        const imgRef = await addDoc(collection(db, 'images'), {
+        const imgRef = await dataProvider.saveImage({
           uid: user?.uid,
           prompt: enhancedPrompt,
           originalPrompt: prompt,
           style: neuralStyle,
-          data: imageUrl,
-          createdAt: serverTimestamp()
+          data: imageUrl
         });
 
 
@@ -1119,9 +1100,8 @@ export default function App() {
     const activeUser = user || auth.currentUser;
     if (!activeUser) return;
     
-    const userRef = doc(db, 'users', activeUser.uid);
     try {
-      await updateDoc(userRef, {
+      await dataProvider.updateUser(activeUser.uid, {
         credits: 999999,
         role: activeUser.email?.toLowerCase() === 'mcaluissa@gmail.com' ? 'admin' : 'user'
       });
