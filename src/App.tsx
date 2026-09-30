@@ -426,11 +426,8 @@ export default function App() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             // Enforce admin role and high credits for Master in state
-            if (currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com') {
+            if (currentUser.email?.toLowerCase() === 'mcaluissa@gmail.com' || data.role === 'admin') {
               setCredits(999999);
-              if (data.role !== 'admin') {
-                updateDoc(userRef, { role: 'admin' }).catch(e => console.error("Admin upgrade failed", e));
-              }
             } else {
               setCredits(data.credits || 0);
             }
@@ -656,41 +653,26 @@ export default function App() {
   };
 
   const deductCredits = async (amount: number) => {
-    const activeUser = user || auth.currentUser;
-    if (!activeUser) return false;
-    
-    // Hardcoded admin bypass for the Master - Robust Check
-    const userEmail = activeUser.email?.toLowerCase();
-    if (userEmail === 'mcaluissa@gmail.com' || userEmail?.includes('mcaluissa')) return true;
-
-    const userRef = doc(db, 'users', activeUser.uid);
     try {
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const currentCredits = userData.credits || 0;
-        const role = userData.role;
-        
-        if (role === 'admin' || userEmail === 'mcaluissa@gmail.com') return true; // Admins have infinite credits
-        
-        if (currentCredits < amount) {
-          setMessages(prev => [...prev, { role: 'model', text: `⚠️ **Créditos Insuficientes.** Mestre, sua reserva neural está em ${currentCredits}. Esta operação requer ${amount} créditos. Deseja realizar um upgrade?` }]);
-          return false;
-        }
-        
-        await updateDoc(userRef, {
-          credits: currentCredits - amount
-        });
-        return true;
-      } else {
-        // If doc doesn't exist yet, allow the Master bypass or default to true for the very first action
-        // while the profile is being created in the background.
-        if (userEmail === 'mcaluissa@gmail.com') return true;
-        return true; // Allow first action to prevent blocking
+      const response = await apiFetch("/api/credits/consume", {
+        method: "POST",
+        body: JSON.stringify({ amount }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        const currentCredits = typeof data.credits === "number" ? data.credits : credits;
+        setCredits(currentCredits);
+        setMessages(prev => [...prev, {
+          role: 'model',
+          text: `⚠️ **Créditos Insuficientes.** Mestre, sua reserva neural está em ${currentCredits}. Esta operação requer ${amount} créditos. Deseja realizar um upgrade?`
+        }]);
+        return false;
       }
-      return false;
+      if (typeof data.credits === "number") setCredits(data.credits);
+      return true;
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${activeUser.uid}`);
+      console.error("Credit authorization failed", error);
+      setMessages(prev => [...prev, { role: 'model', text: "⚠️ **Reserva Neural Indisponível.** Não foi possível validar os créditos desta operação." }]);
       return false;
     }
   };
