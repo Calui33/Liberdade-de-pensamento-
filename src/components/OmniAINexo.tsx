@@ -830,8 +830,6 @@ const OmniAINexo: React.FC<OmniAINexoProps> = ({
                   </span>
                 </div>
               </div>
-                <Zap size={14} />
-              </button>
             </div>
 
             <button 
