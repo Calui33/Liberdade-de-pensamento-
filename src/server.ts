@@ -306,6 +306,28 @@ async function startServer() {
     }
   });
 
+  app.post("/api/neural/map", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY não configurada no servidor." });
+      const contents = Array.isArray(req.body?.contents) ? req.body.contents : [];
+      const searchQuery = typeof req.body?.searchQuery === "string" ? req.body.searchQuery : "";
+      const latLng = req.body?.latLng || { latitude: -23.5505, longitude: -46.6333 };
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await withRetry(() => ai.models.generateContent({
+        model: "gemini-3-flash-preview", contents,
+        config: {
+          systemInstruction: `Você é o Navegador Neural da Skynet4 Omni-AI Nexo. Localize os 'Neural Nodes' (lugares) solicitados pelo Mestre. O Mestre está procurando por: ${searchQuery}. Forneça detalhes precisos e links do Google Maps.`,
+          tools: [{ googleMaps: {} }], toolConfig: { retrievalConfig: { latLng } },
+        },
+      }));
+      res.json({ text: result.text || "", chunks: result.candidates?.[0]?.groundingMetadata?.groundingChunks || [] });
+    } catch (error: any) {
+      console.error("Map neural search failed:", error); res.status(500).json({ error: error?.message || "Map neural search failed." });
+    }
+  });
+
   // GitHub API Proxy
   app.all("/api/github/*", async (req, res) => {
     const pat = process.env.GITHUB_PAT;
