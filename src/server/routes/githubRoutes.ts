@@ -19,7 +19,15 @@ export function createGitHubRouter() {
       return res.status(403).json({ error: "Rota GitHub não autorizada." });
     }
 
-    const query = new URLSearchParams(req.query as Record<string, string | string[]>).toString();
+    const queryParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(req.query)) {
+      if (Array.isArray(value)) {
+        for (const item of value) queryParams.append(key, String(item));
+      } else if (value !== undefined) {
+        queryParams.append(key, String(value));
+      }
+    }
+    const query = queryParams.toString();
     const url = `https://api.github.com/${githubPath}${query ? `?${query}` : ""}`;
 
     try {
