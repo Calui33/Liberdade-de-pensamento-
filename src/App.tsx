@@ -57,6 +57,7 @@ import { generateOmniResponse } from './services/omniApi';
 import { generateNeuralImage, synthesizeNeuralSpeech } from './services/neuralMediaApi';
 import { searchNeuralMap } from './services/mapApi';
 import { generateNeuralVideo } from './services/videoApi';
+import { apiFetch } from './services/apiFetch';
 import SurrealHero from './components/SurrealHero';
 import OmniAINexo from './components/OmniAINexo';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -399,7 +400,7 @@ export default function App() {
   useEffect(() => {
     const fetchWisdom = async () => {
       try {
-        const response = await fetch("/api/neural/wisdom", { method: "POST" });
+        const response = await apiFetch("/api/neural/wisdom", { method: "POST" });
         const data = await response.json();
         setDailyWisdom(data.text || "O conhecimento é a luz que guia a evolução.");
       } catch (e) {
