@@ -1,7 +1,6 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { createSign } from "crypto";
 import { fileURLToPath } from "url";
 import Stripe from "stripe";
 import dotenv from "dotenv";
@@ -75,86 +74,45 @@ async function startServer() {
 
   const firestoreBase = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents`;
   const CREDIT_COSTS = new Set([1, 5, 20, 35, 50]);
-  let firestoreAccessToken: { value: string; expiresAt: number } | null = null;
-
-  const getFirestoreAccessToken = async () => {
-    if (firestoreAccessToken && firestoreAccessToken.expiresAt > Date.now()) return firestoreAccessToken.value;
-
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "";
-    if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON não configurada no servidor.");
-    const serviceAccount = JSON.parse(raw);
-    const now = Math.floor(Date.now() / 1000);
-    const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
-    const unsigned = `${encode({ alg: "RS256", typ: "JWT" })}.${encode({
-      iss: serviceAccount.client_email,
-      scope: "https://www.googleapis.com/auth/datastore",
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-    })}`;
-    const signer = createSign("RSA-SHA256");
-    signer.update(unsigned);
-    const assertion = `${unsigned}.${signer.sign(serviceAccount.private_key, "base64url")}`;
-
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion,
-      }),
-    });
-    const tokenData = await tokenResponse.json();
-    if (!tokenResponse.ok || !tokenData.access_token) {
-      throw new Error("Não foi possível obter credencial administrativa do Firestore.");
-    }
-
-    firestoreAccessToken = {
-      value: tokenData.access_token,
-      expiresAt: Date.now() + Math.max(60, Number(tokenData.expires_in || 3600) - 60) * 1000,
-    };
-    return firestoreAccessToken.value;
-  };
 
   const consumeCredits = async (req: express.Request, amount: number): Promise<{ ok: boolean; credits?: number; error?: string }> => {
     if (!CREDIT_COSTS.has(amount)) return { ok: false, error: "Custo de crédito inválido." };
 
     const firebaseUser = (req as any).firebaseUser;
+    const token = (req.header("Authorization") || "").slice(7);
     const uid = firebaseUser?.localId;
-    if (!uid) return { ok: false, error: "Autenticação necessária." };
+    if (!uid || !token) return { ok: false, error: "Autenticação necessária." };
 
-    // Preserve the existing Master/admin behavior, but decide it on the server.
     if (firebaseUser.email?.toLowerCase() === "mcaluissa@gmail.com") {
       return { ok: true, credits: 999999 };
     }
 
-    const adminToken = await getFirestoreAccessToken();
-
     for (let attempt = 0; attempt < 4; attempt++) {
       const response = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.status === 404) {
+        const initialCredits = 100 - amount;
         const created = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
           method: "PATCH",
-          headers: { Authorization: `Bearer ${adminToken}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             fields: {
               uid: { stringValue: uid },
               email: { stringValue: firebaseUser.email || "" },
-              credits: { integerValue: String(100 - amount) },
+              credits: { integerValue: String(initialCredits) },
               role: { stringValue: "user" },
               createdAt: { timestampValue: new Date().toISOString() },
             },
           }),
         });
-        if (created.ok) return { ok: true, credits: 100 - amount };
+        if (created.ok) return { ok: true, credits: initialCredits };
         if (created.status === 409) continue;
-        throw new Error("Não foi possível inicializar o perfil de créditos.");
+        return { ok: false, error: "Não foi possível inicializar o perfil de créditos." };
       }
 
-      if (!response.ok) throw new Error("Não foi possível consultar os créditos.");
+      if (!response.ok) return { ok: false, error: "Não foi possível consultar os créditos." };
 
       const userDoc = await response.json();
       const role = userDoc.fields?.role?.stringValue;
@@ -170,7 +128,7 @@ async function startServer() {
         `${firestoreBase}/users/${encodeURIComponent(uid)}?updateMask.fieldPaths=credits`,
         {
           method: "PATCH",
-          headers: { Authorization: `Bearer ${adminToken}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             fields: { credits: { integerValue: String(nextCredits) } },
             currentDocument: { updateTime: userDoc.updateTime },
@@ -180,7 +138,7 @@ async function startServer() {
 
       if (update.ok) return { ok: true, credits: nextCredits };
       if (update.status === 409) continue;
-      throw new Error("Não foi possível atualizar os créditos.");
+      return { ok: false, error: "Não foi possível atualizar os créditos." };
     }
 
     return { ok: false, error: "A reserva de créditos mudou durante a operação. Tente novamente." };
