@@ -5,6 +5,7 @@ on:
     branches:
       - "extract/standalone-personality-preserved"
       - "hardening/server-credits"
+      - "hardening/personal-owner-only"
       - "main"
   pull_request:
     branches:
