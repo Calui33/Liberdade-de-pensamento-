@@ -1,5 +1,6 @@
+import { apiFetch } from "../../services/apiFetch";
 const postNeural = async (path: string, body: Record<string, unknown>): Promise<string> => {
-  const response = await fetch(path, {
+  const response = await apiFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
