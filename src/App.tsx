@@ -84,15 +84,6 @@ import {
   addDoc
 } from 'firebase/firestore';
 
-declare global {
-  interface Window {
-    aistudio?: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
-}
-
 // Initialize Gemini
 // --- Matrix Background Component ---
 const MatrixBackground = ({ isSurrealMode }: { isSurrealMode?: boolean }) => {
@@ -389,19 +380,6 @@ export default function App() {
     setIsSurrealMode(!isSurrealMode);
     sounds.playBip(isSurrealMode ? 440 : 880, 'sine', 0.2);
   };
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  // Check for API Key on mount
-  useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio?.hasSelectedApiKey) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
-      }
-    };
-    checkKey();
-  }, []);
-
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -675,13 +653,6 @@ export default function App() {
     }
   };
 
-  const openKeyDialog = async () => {
-    if (window.aistudio?.openSelectKey) {
-      await window.aistudio.openSelectKey();
-      setHasApiKey(true);
-    }
-  };
-
   const deductCredits = async (amount: number) => {
     const activeUser = user || auth.currentUser;
     if (!activeUser) return false;
@@ -769,15 +740,6 @@ export default function App() {
   };
 
   const generateImage = async (prompt: string) => {
-    if (!hasApiKey) {
-      setMessages(prev => [...prev, { 
-        role: 'model', 
-        text: "⚠️ **Acesso Negado.** Para gerar imagens neurais de alta qualidade (Gemini 3.1), você precisa selecionar uma chave de API. [Clique aqui para configurar](https://ai.google.dev/gemini-api/docs/billing)." 
-      }]);
-      sounds.playError();
-      return;
-    }
-
     const hasCredits = await deductCredits(5);
     if (!hasCredits) return;
 
@@ -1269,8 +1231,6 @@ export default function App() {
         onSendMessage={handleSendMessage}
         onManualRestore={handleManualRestore}
         onShowOnboarding={() => setShowOnboarding(true)}
-        hasApiKey={hasApiKey}
-        onOpenKeyDialog={openKeyDialog}
         networkStatus={networkStatus}
       />
     </>
