@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import Stripe from "stripe";
 import dotenv from "dotenv";
 import { withRetry } from "./lib/retry";
+import firebaseConfig from "../firebase-applet-config.json";
 
 dotenv.config();
 
@@ -33,7 +34,7 @@ async function startServer() {
 
   app.use(express.json({ limit: "20mb" }));
 
-  const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
+  const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey;
   const authCache = new Map<string, { user: any; expiresAt: number }>();
 
   const requireFirebaseAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
