@@ -288,7 +288,7 @@ async function startServer() {
 
   app.post("/api/neural/video", async (req, res) => {
     try {
-      const duration = [5, 10, 15].includes(Number(req.body?.duration)) ? Number(req.body.duration) : 5;
+      const duration = ([5, 10, 15].includes(Number(req.body?.duration)) ? Number(req.body.duration) : 5) as 5 | 10 | 15;
       const cost = duration >= 15 ? 50 : (duration >= 10 ? 35 : 20);
       const credit = await consumeCredits(req, cost);
       if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
