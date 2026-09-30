@@ -29,14 +29,15 @@ const SurrealHero: React.FC<SurrealHeroProps> = ({ onBack }) => {
     setVisionUrl(null);
 
     try {
-      const textResponse = await generateSurrealText(input, isRawMode);      const textResponse = textResult.text || "O silêncio é a resposta da convergência.";
+      const textResponse = await generateSurrealText(input, isRawMode);
       setResponse(textResponse);
 
       // 2. Generate Vision (Sora/Image Component)
-      const imageData = await generateSurrealVision(textResponse, isRawMode);      const imagePart = visionResult.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+      const imageData = await generateSurrealVision(textResponse, isRawMode);
       if (imageData) {
         setVisionUrl(`data:image/png;base64,${imageData}`);
-      }    } catch (error) {
+      }
+    } catch (error) {
       console.error("Erro na pulsação neural:", error);
       setResponse("A rede oscilou, mas a visão permanece latente.");
     } finally {
