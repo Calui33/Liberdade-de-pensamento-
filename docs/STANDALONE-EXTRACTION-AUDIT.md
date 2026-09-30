@@ -14,8 +14,6 @@ Extract the existing SKYNET4 OMNI-AI NEXO from its Google AI Studio environment 
 - Token limits and generation parameters.
 - Voice, image, video and map model/tool configuration.
 - Firebase authentication and Firestore data model during the first extraction phase.
-- Supabase synchronization behavior.
-- Stripe flow behavior unless explicitly changed.
 
 ## Infrastructure to migrate
 
@@ -51,11 +49,9 @@ These should be migrated as named server capabilities rather than replaced with 
 
 ## Data layer
 
-Firebase/Firestore is currently the primary datastore and authentication path.
+Firebase/Firestore remains the primary authentication and persistence layer.
 
-Supabase is an auxiliary synchronization/analytics path through `syncToSupabase`.
-
-The first extraction should not replace Firebase with Supabase because the current Firebase UID model and the proposed Supabase schema/RLS model are not equivalent.
+The application now accesses authentication and persistence through provider boundaries so Firebase can be replaced later without changing SKYNET4 behavior.
 
 ## Existing refactor branch
 
@@ -65,18 +61,9 @@ Reusable ideas from that branch can be evaluated individually after the standalo
 
 ## Technical issues to isolate from personality work
 
-- Client-side Gemini credentials.
-- AI Studio key-selection dependency.
-- Client-controlled credit deduction/admin bypass.
-- Generic GitHub PAT proxy.
-- Stripe success/cancel URL derived directly from request origin.
-- Base64 images stored in Firestore.
-- Chat documents growing toward Firestore document limits.
-- Main App / neuralService return-contract mismatch for neural analysis.
-- Hardcoded location fallback and browser locale assumptions.
-- Potential Firestore composite-index requirements.
-
-These are infrastructure/security/reliability concerns and must not be “fixed” by altering SKYNET4 personality prompts.
+- Firestore stores generated image data as base64; an object-storage boundary may be appropriate if the personal vault grows.
+- Firebase project identifiers retain legacy Google AI Studio naming; renaming the project is a separate migration and is not required for standalone runtime independence.
+- The GitHub integration is intentionally optional and read-only.
 
 ## Extraction sequence
 
