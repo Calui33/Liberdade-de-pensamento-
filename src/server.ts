@@ -2,9 +2,9 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { githubAllowedRepo, githubPat } from "./server/runtimeConfig";
 import { createNeuralRouter } from "./server/routes/neuralRoutes";
-import { consumeCredits } from "./server/services/creditsService";
+import { createCreditsRouter } from "./server/routes/creditsRoutes";
+import { createGitHubRouter } from "./server/routes/githubRoutes";
 import { requireFirebaseAuth, requireOwner } from "./server/middleware/firebaseAuth";
 
 
@@ -20,56 +20,10 @@ async function startServer() {
 
   app.use("/api", requireFirebaseAuth, requireOwner);
 
-  app.post("/api/credits/consume", async (req, res) => {
-    try {
-      const amount = Number(req.body?.amount);
-      const result = await consumeCredits(req, amount);
-      if (!result.ok) return res.status(result.error === "Créditos insuficientes." ? 402 : 400).json(result);
-      res.json({ ok: true, credits: result.credits });
-    } catch (error) {
-      console.error("Credit consumption failed:", error);
-      res.status(503).json({ error: "Não foi possível processar os créditos." });
-    }
-  });
-
+  app.use("/api", createCreditsRouter());
 
   app.use("/api", createNeuralRouter());
-  // GitHub API Proxy — authenticated, read-only, allowlisted.
-  app.get("/api/github/*", async (req, res) => {
-    const pat = githubPat;
-    if (!pat) {
-      return res.status(401).json({ 
-        error: "GITHUB_PAT não configurado. Por favor, adicione seu Personal Access Token do GitHub nas configurações." 
-      });
-    }
-
-    const githubPath = req.params[0];
-    const allowedRepo = githubAllowedRepo;
-    const allowedPrefix = `repos/${allowedRepo}/`;
-    if (!githubPath.startsWith(allowedPrefix) && !githubPath.startsWith("users/")) {
-      return res.status(403).json({ error: "Rota GitHub não autorizada." });
-    }
-    const query = new URLSearchParams(req.query as any).toString();
-    const url = `https://api.github.com/${githubPath}${query ? `?${query}` : ""}`;
-
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": `token ${pat}`,
-          "Accept": "application/vnd.github.v3+json",
-          "User-Agent": "OMNI-AI-App"
-        },
-      });
-
-      const data = await response.json();
-      res.status(response.status).json(data);
-    } catch (error: any) {
-      console.error("GitHub Proxy Error:", error.message);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
+  app.use("/api", createGitHubRouter());
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
