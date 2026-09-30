@@ -107,10 +107,10 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
-                      (request.resource.data.role == 'user' || isAdmin());
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
-                      (request.resource.data.role == resource.data.role || isAdmin());
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) &&
+                      ((request.resource.data.role == 'user' && request.resource.data.credits == 100) || isAdmin());
+      // Credit balances are server-controlled. Clients cannot mutate their own balance.
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
