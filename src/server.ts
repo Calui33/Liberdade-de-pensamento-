@@ -4,7 +4,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { getNeuralProvider } from "./server/providers/neuralProvider";
-import { firebaseApiKey, firestoreBase, githubAllowedRepo, githubPat, ownerEmail } from "./server/runtimeConfig";
+import { githubAllowedRepo, githubPat } from "./server/runtimeConfig";
+import { requireFirebaseAuth, requireOwner } from "./server/middleware/firebaseAuth";
+import { consumeCredits } from "./server/services/creditsService";
 
 dotenv.config();
 
@@ -18,124 +20,7 @@ async function startServer() {
 
   app.use(express.json({ limit: "20mb" }));
 
-  const authCache = new Map<string, { user: any; expiresAt: number }>();
-
-  const requireFirebaseAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const header = req.header("Authorization") || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-    if (!token) return res.status(401).json({ error: "Autenticação necessária." });
-    if (!firebaseApiKey) return res.status(500).json({ error: "FIREBASE_API_KEY não configurada no servidor." });
-
-    const cached = authCache.get(token);
-    if (cached && cached.expiresAt > Date.now()) {
-      (req as any).firebaseUser = cached.user;
-      return next();
-    }
-
-    try {
-      const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseApiKey)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: token }),
-      });
-      const data = await response.json();
-      const firebaseUser = data?.users?.[0];
-      if (!response.ok || !firebaseUser || firebaseUser.disabled) {
-        return res.status(401).json({ error: "Sessão Firebase inválida ou expirada." });
-      }
-
-      authCache.set(token, { user: firebaseUser, expiresAt: Date.now() + 5 * 60 * 1000 });
-      (req as any).firebaseUser = firebaseUser;
-      next();
-    } catch (error) {
-      console.error("Firebase auth verification failed:", error);
-      res.status(503).json({ error: "Não foi possível verificar a sessão." });
-    }
-  };
-
-  const requireOwner = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const firebaseUser = (req as any).firebaseUser;
-    const email = typeof firebaseUser?.email === "string" ? firebaseUser.email.trim().toLowerCase() : "";
-    if (!email || email !== ownerEmail) {
-      return res.status(403).json({ error: "Esta instância da SKYNET4 é privada e pertence ao proprietário autorizado." });
-    }
-    next();
-  };
-
-  // SKYNET4 is a personal instance: authentication alone is not enough.
-  // Only the configured owner may access the private API surface.
   app.use("/api", requireFirebaseAuth, requireOwner);
-
-    const CREDIT_COSTS = new Set([1, 5, 20, 35, 50]);
-
-  const consumeCredits = async (req: express.Request, amount: number): Promise<{ ok: boolean; credits?: number; error?: string }> => {
-    if (!CREDIT_COSTS.has(amount)) return { ok: false, error: "Custo de crédito inválido." };
-
-    const firebaseUser = (req as any).firebaseUser;
-    const token = (req.header("Authorization") || "").slice(7);
-    const uid = firebaseUser?.localId;
-    if (!uid || !token) return { ok: false, error: "Autenticação necessária." };
-
-    if (firebaseUser.email?.trim().toLowerCase() === ownerEmail) {
-      return { ok: true, credits: 999999 };
-    }
-
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const response = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.status === 404) {
-        const initialCredits = 100 - amount;
-        const created = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fields: {
-              uid: { stringValue: uid },
-              email: { stringValue: firebaseUser.email || "" },
-              credits: { integerValue: String(initialCredits) },
-              role: { stringValue: "user" },
-              createdAt: { timestampValue: new Date().toISOString() },
-            },
-          }),
-        });
-        if (created.ok) return { ok: true, credits: initialCredits };
-        if (created.status === 409) continue;
-        return { ok: false, error: "Não foi possível inicializar o perfil de créditos." };
-      }
-
-      if (!response.ok) return { ok: false, error: "Não foi possível consultar os créditos." };
-
-      const userDoc = await response.json();
-      const role = userDoc.fields?.role?.stringValue;
-      if (role === "admin") return { ok: true, credits: 999999 };
-
-      const currentCredits = Number(userDoc.fields?.credits?.integerValue ?? userDoc.fields?.credits?.doubleValue ?? 0);
-      if (!Number.isFinite(currentCredits) || currentCredits < amount) {
-        return { ok: false, credits: currentCredits, error: "Créditos insuficientes." };
-      }
-
-      const nextCredits = currentCredits - amount;
-      const update = await fetch(
-        `${firestoreBase}/users/${encodeURIComponent(uid)}?updateMask.fieldPaths=credits`,
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fields: { credits: { integerValue: String(nextCredits) } },
-            currentDocument: { updateTime: userDoc.updateTime },
-          }),
-        }
-      );
-
-      if (update.ok) return { ok: true, credits: nextCredits };
-      if (update.status === 409) continue;
-      return { ok: false, error: "Não foi possível atualizar os créditos." };
-    }
-
-    return { ok: false, error: "A reserva de créditos mudou durante a operação. Tente novamente." };
-  };
 
   app.post("/api/credits/consume", async (req, res) => {
     try {
