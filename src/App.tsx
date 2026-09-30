@@ -60,29 +60,12 @@ import { apiFetch } from './services/apiFetch';
 import SurrealHero from './components/SurrealHero';
 import OmniAINexo from './components/OmniAINexo';
 import OnboardingFlow from './components/OnboardingFlow';
-import { 
-  auth, 
-  db, 
-  googleProvider, 
-  signInWithPopup, 
-  onAuthStateChanged, 
-  serverTimestamp, 
-  Timestamp,
-  User
-} from './firebase';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  onSnapshot, 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  addDoc
-} from 'firebase/firestore';
+import { authProvider, AuthUser } from './services/auth/authProvider';
+import { dataProvider } from './services/data/dataProvider';
+
+const { auth, googleProvider, signInWithPopup, onAuthStateChanged } = authProvider;
+const { db, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, orderBy, limit, addDoc, serverTimestamp, Timestamp } = dataProvider;
+type User = AuthUser;
 
 // Initialize Gemini
 // --- Matrix Background Component ---

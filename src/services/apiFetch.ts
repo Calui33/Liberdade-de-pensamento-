@@ -1,7 +1,7 @@
-import { auth } from "../firebase";
+import { authProvider } from "./auth/authProvider";
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  const user = auth.currentUser;
+  const user = authProvider.auth.currentUser;
   if (!user) throw new Error("Autenticação necessária.");
   const token = await user.getIdToken();
   const headers = new Headers(init.headers);
