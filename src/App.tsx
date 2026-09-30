@@ -1019,7 +1019,7 @@ export default function App() {
           role: msg.role === 'user' ? 'user' as const : 'model' as const,
           parts: [{ text: msg.text }]
         }));
-        const chunks = await searchNeuralMap(mapContents, searchQuery, latLng);        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        const chunks = await searchNeuralMap(mapContents, searchQuery, latLng);
         if (chunks) {
           setMapData(chunks);
         }
