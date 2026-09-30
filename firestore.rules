@@ -48,14 +48,19 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // This is a single-owner application, not a multi-user SaaS.
+    function isOwnerAccount() {
+      return isAuthenticated() &&
+        request.auth.token.email == "mcaluissa@gmail.com" &&
+        request.auth.token.email_verified == true;
+    }
+
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isOwnerAccount() && request.auth.uid == userId;
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "mcaluissa@gmail.com" && request.auth.token.email_verified == true));
+      return isOwnerAccount();
     }
 
     function isValidEmail(email) {
@@ -71,7 +76,8 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email', 'credits', 'role', 'createdAt']) &&
+      return isOwnerAccount() &&
+             data.keys().hasAll(['uid', 'email', 'credits', 'role', 'createdAt']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
              data.credits is number && data.credits >= 0 &&
@@ -126,24 +132,24 @@ service cloud.firestore {
     }
 
     match /chats/{chatId} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid || isAdmin();
-      allow create: if isAuthenticated() && isValidChat(request.resource.data);
-      allow update: if isAuthenticated() && isValidChat(request.resource.data) && resource.data.uid == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid || isAdmin();
+      allow read: if isOwnerAccount() && resource.data.uid == request.auth.uid;
+      allow create: if isOwnerAccount() && isValidChat(request.resource.data);
+      allow update: if isOwnerAccount() && isValidChat(request.resource.data) && resource.data.uid == request.auth.uid;
+      allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
     }
 
     match /videos/{videoId} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid || isAdmin();
-      allow create: if isAuthenticated() && isValidVideo(request.resource.data);
-      allow update: if isAuthenticated() && isValidVideo(request.resource.data) && resource.data.uid == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid || isAdmin();
+      allow read: if isOwnerAccount() && resource.data.uid == request.auth.uid;
+      allow create: if isOwnerAccount() && isValidVideo(request.resource.data);
+      allow update: if isOwnerAccount() && isValidVideo(request.resource.data) && resource.data.uid == request.auth.uid;
+      allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
     }
 
     match /images/{imageId} {
-      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid || isAdmin();
-      allow create: if isAuthenticated() && isValidImage(request.resource.data);
-      allow update: if isAuthenticated() && isValidImage(request.resource.data) && resource.data.uid == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid || isAdmin();
+      allow read: if isOwnerAccount() && resource.data.uid == request.auth.uid;
+      allow create: if isOwnerAccount() && isValidImage(request.resource.data);
+      allow update: if isOwnerAccount() && isValidImage(request.resource.data) && resource.data.uid == request.auth.uid;
+      allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
     }
   }
 }
