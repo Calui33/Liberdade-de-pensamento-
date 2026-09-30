@@ -56,7 +56,7 @@ Temperature:
 - Supabase is currently a secondary synchronization/analytics path.
 - Stripe is handled by the existing Express server.
 - GitHub is exposed through the existing Express proxy.
-- The current Vite configuration injects Gemini API keys into the client bundle; standalone extraction should remove that exposure without changing AI behavior.
+- Gemini credentials are server-side; the browser does not receive the Gemini API credential.
 
 ## Validation target
 
