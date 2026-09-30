@@ -13,10 +13,14 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
 
   app.use(express.json({ limit: "20mb" }));
+
+  app.get("/healthz", (_req, res) => {
+    res.status(200).json({ status: "ok", service: "skynet4-omni-ai" });
+  });
 
   app.use("/api", requireFirebaseAuth, requireOwner);
 
