@@ -398,6 +398,7 @@ export default function App() {
 
   // Fetch Daily Wisdom
   useEffect(() => {
+    if (!isAuthenticated) return;
     const fetchWisdom = async () => {
       try {
         const response = await apiFetch("/api/neural/wisdom", { method: "POST" });
@@ -408,7 +409,7 @@ export default function App() {
       }
     };
     fetchWisdom();
-  }, []);
+  }, [isAuthenticated]);
 
   // Auth & Sync
   useEffect(() => {
