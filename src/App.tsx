@@ -427,9 +427,8 @@ export default function App() {
           console.error("Error fetching images", error);
         });
 
-        const unsubChat = dataProvider.watchLatestChat(currentUser.uid, async (snapshot) => {
-          if (!snapshot.empty) {
-            const chatData = snapshot.docs[0].data();
+        const unsubChat = dataProvider.watchLatestChat(currentUser.uid, async (chatData) => {
+          if (chatData) {
             const existingMessages = chatData.messages as Message[];
             const messagesWithImages = await Promise.all(existingMessages.map(async (m) => {
               if ((m as any).imageId && !m.image) {
