@@ -20,13 +20,13 @@ export type AuthUser = {
   isAnonymous: boolean;
   tenantId: string | null;
   providerData: AuthProviderInfo[];
-  getIdToken(forceRefresh?: boolean): Promise<string>;
 };
 
 export type AuthSubscription = (user: AuthUser | null) => void;
 
 export interface AuthProvider {
   getCurrentUser(): AuthUser | null;
+  getIdToken(forceRefresh?: boolean): Promise<string>;
   signInWithGoogle(): Promise<AuthUser>;
   signOut(): Promise<void>;
   subscribe(listener: AuthSubscription): () => void;
@@ -44,12 +44,15 @@ const toAuthUser = (user: FirebaseUser): AuthUser => ({
     email: provider.email,
     photoUrl: provider.photoURL,
   })),
-  getIdToken: (forceRefresh) => user.getIdToken(forceRefresh),
 });
 
 /** Firebase implementation of the application authentication contract. */
 export const authProvider: AuthProvider = {
   getCurrentUser: () => auth.currentUser ? toAuthUser(auth.currentUser) : null,
+  getIdToken: (forceRefresh) => {
+    if (!auth.currentUser) throw new Error("Autenticação necessária.");
+    return auth.currentUser.getIdToken(forceRefresh);
+  },
   async signInWithGoogle() {
     const result = await signInWithPopup(auth, googleProvider);
     return toAuthUser(result.user);
