@@ -394,6 +394,13 @@ export default function App() {
   // Auth & Sync
   useEffect(() => {
     let sessionCleanups: (() => void)[] = [];
+
+    void authProvider.resolveGoogleRedirect().catch((error: any) => {
+      console.error("Google redirect login failed", error);
+      sounds.playError();
+      alert(`❌ Falha na autenticação: ${error?.message || "não foi possível concluir o login."}`);
+    });
+
     const unsubscribe = authProvider.subscribe(async (currentUser) => {
       sessionCleanups.forEach((cleanup) => cleanup());
       sessionCleanups = [];
