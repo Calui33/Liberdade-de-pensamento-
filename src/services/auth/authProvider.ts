@@ -1,7 +1,8 @@
 import {
   auth,
   googleProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged,
 } from "../../firebase";
 import type { User as FirebaseUser } from "../../firebase";
@@ -27,7 +28,8 @@ export type AuthSubscription = (user: AuthUser | null) => void;
 export interface AuthProvider {
   getCurrentUser(): AuthUser | null;
   getIdToken(forceRefresh?: boolean): Promise<string>;
-  signInWithGoogle(): Promise<AuthUser>;
+  signInWithGoogle(): Promise<void>;
+  resolveGoogleRedirect(): Promise<void>;
   signOut(): Promise<void>;
   subscribe(listener: AuthSubscription): () => void;
 }
@@ -53,9 +55,9 @@ export const authProvider: AuthProvider = {
     if (!auth.currentUser) throw new Error("Autenticação necessária.");
     return auth.currentUser.getIdToken(forceRefresh);
   },
-  async signInWithGoogle() {
-    const result = await signInWithPopup(auth, googleProvider);
-    return toAuthUser(result.user);
+  signInWithGoogle: () => signInWithRedirect(auth, googleProvider),
+  resolveGoogleRedirect: async () => {
+    await getRedirectResult(auth);
   },
   signOut: () => auth.signOut(),
   subscribe: (listener) => onAuthStateChanged(auth, (user) => listener(user ? toAuthUser(user) : null)),
