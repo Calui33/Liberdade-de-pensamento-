@@ -58,15 +58,17 @@ service cloud.firestore {
 
     match /skynet4_users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isAuthenticated() &&
+      allow create: if isOwner(userId) &&
         isValidUser(request.resource.data) &&
-        request.resource.data.role == 'user' &&
-        request.resource.data.credits in [50, 65, 80, 95, 99, 100];
+        request.resource.data.uid == userId &&
+        request.resource.data.role == 'admin' &&
+        request.resource.data.credits >= 0;
       allow update: if isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits']) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
         request.resource.data.credits is number &&
-        request.resource.data.credits >= 0 &&
-        request.resource.data.credits == resource.data.credits - 1;
+        request.resource.data.credits >= 0;
       allow delete: if isOwner(userId);
     }
 
