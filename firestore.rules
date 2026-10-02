@@ -1,54 +1,11 @@
-// ===============================================================
-// Assumed Data Model
-// ===============================================================
-//
-// Collection: users
-// Document ID: userId (uid)
-// Fields:
-//   - uid: string (required)
-//   - email: string (required, email format)
-//   - credits: number (required, >= 0)
-//   - role: string (required, 'user' or 'admin')
-//   - createdAt: timestamp (required)
-//
-// Collection: chats
-// Document ID: chatId (unique)
-// Fields:
-//   - uid: string (required)
-//   - messages: list (required)
-//   - updatedAt: timestamp (required)
-//
-// Collection: videos
-// Document ID: videoId (unique)
-// Fields:
-//   - uid: string (required)
-//   - prompt: string (required)
-//   - url: string (required)
-//   - createdAt: timestamp (required)
-//
-// Collection: images
-// Document ID: imageId (unique)
-// Fields:
-//   - uid: string (required)
-//   - prompt: string (optional)
-//   - data: string (required, base64)
-//   - createdAt: timestamp (required)
-//
-// ===============================================================
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // This is a single-owner application, not a multi-user SaaS.
     function isOwnerAccount() {
       return isAuthenticated() &&
         request.auth.token.email == "setecentistaquero@gmail.com" &&
@@ -59,97 +16,114 @@ service cloud.firestore {
       return isOwnerAccount() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isOwnerAccount();
-    }
-
     function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
 
     function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^blob:.*"));
+      return url is string &&
+        (url.matches("^https://.*") ||
+         url.matches("^http://.*") ||
+         url.matches("^blob:.*"));
     }
-
-    // ===============================================================
-    // Domain Validators
-    // ===============================================================
 
     function isValidUser(data) {
       return isOwnerAccount() &&
-             data.keys().hasAll(['uid', 'email', 'credits', 'role', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             isValidEmail(data.email) &&
-             data.credits is number && data.credits >= 0 &&
-             data.role in ['user', 'admin'] &&
-             data.createdAt is timestamp;
+        data.keys().hasAll(['uid', 'email', 'credits', 'role', 'createdAt']) &&
+        data.uid == request.auth.uid &&
+        isValidEmail(data.email) &&
+        data.credits is number &&
+        data.credits >= 0 &&
+        data.role in ['user', 'admin'] &&
+        data.createdAt is timestamp;
     }
 
     function isValidChat(data) {
-      return data.keys().hasAll(['uid', 'messages', 'updatedAt']) &&
-             data.uid == request.auth.uid &&
-             data.messages is list &&
-             data.updatedAt is timestamp;
-    }
-
-    function isValidVideo(data) {
-      return data.keys().hasAll(['uid', 'prompt', 'url', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             data.prompt is string && data.prompt.size() < 1000 &&
-             isValidUrl(data.url) &&
-             data.createdAt is timestamp;
+      return isOwnerAccount() &&
+        data.keys().hasAll(['uid', 'messages', 'updatedAt']) &&
+        data.uid == request.auth.uid &&
+        data.messages is list &&
+        data.updatedAt is timestamp;
     }
 
     function isValidImage(data) {
-      return data.keys().hasAll(['uid', 'data', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             data.data is string && data.data.size() < 2000000 && // Max 2MB base64
-             data.createdAt is timestamp;
+      return isOwnerAccount() &&
+        data.keys().hasAll(['uid', 'data', 'createdAt']) &&
+        data.uid == request.auth.uid &&
+        data.data is string &&
+        data.data.size() < 2000000 &&
+        data.createdAt is timestamp;
     }
 
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) &&
-                      ((request.resource.data.role == 'user' &&
-                        request.resource.data.credits in [50, 65, 80, 95, 99, 100]) || isAdmin());
-      // Users may only spend credits; they can never increase their balance or alter identity/role fields.
-      allow update: if isAuthenticated() && isOwner(userId) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits']) &&
-                      request.resource.data.credits is number &&
-                      request.resource.data.credits >= 0 &&
-                      (request.resource.data.credits == resource.data.credits - 1 ||
-                       request.resource.data.credits == resource.data.credits - 5 ||
-                       request.resource.data.credits == resource.data.credits - 20 ||
-                       request.resource.data.credits == resource.data.credits - 35 ||
-                       request.resource.data.credits == resource.data.credits - 50 ||
-                       isAdmin()) ||
-                      isAdmin();
-      allow delete: if isAdmin();
+    function isValidMemory(data) {
+      return isOwnerAccount() &&
+        data.keys().hasAll(['uid', 'messages', 'summary', 'updatedAt']) &&
+        data.uid == request.auth.uid &&
+        data.messages is list &&
+        data.messages.size() <= 20 &&
+        data.summary is string &&
+        data.summary.size() <= 10000 &&
+        data.updatedAt is timestamp;
     }
 
-    match /chats/{chatId} {
+    match /skynet4_users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        isValidUser(request.resource.data) &&
+        request.resource.data.uid == userId &&
+        request.resource.data.role == 'admin' &&
+        request.resource.data.credits >= 0;
+      allow update: if isOwner(userId) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.credits is number &&
+        request.resource.data.credits >= 0;
+      allow delete: if isOwner(userId);
+    }
+
+    match /skynet4_chats/{chatId} {
       allow read: if isOwnerAccount() && resource.data.uid == request.auth.uid;
-      allow create: if isOwnerAccount() && isValidChat(request.resource.data);
-      allow update: if isOwnerAccount() && isValidChat(request.resource.data) && resource.data.uid == request.auth.uid;
+      allow create: if isValidChat(request.resource.data);
+      allow update: if isValidChat(request.resource.data) &&
+        resource.data.uid == request.auth.uid;
       allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
     }
 
-    match /videos/{videoId} {
+    match /skynet4_images/{imageId} {
       allow read: if isOwnerAccount() && resource.data.uid == request.auth.uid;
-      allow create: if isOwnerAccount() && isValidVideo(request.resource.data);
-      allow update: if isOwnerAccount() && isValidVideo(request.resource.data) && resource.data.uid == request.auth.uid;
+      allow create: if isValidImage(request.resource.data);
+      allow update: if isValidImage(request.resource.data) &&
+        resource.data.uid == request.auth.uid;
       allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
     }
 
-    match /images/{imageId} {
-      allow read: if isOwnerAccount() && resource.data.uid == request.auth.uid;
-      allow create: if isOwnerAccount() && isValidImage(request.resource.data);
-      allow update: if isOwnerAccount() && isValidImage(request.resource.data) && resource.data.uid == request.auth.uid;
-      allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
+    match /skynet4_ai_memory/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        isValidMemory(request.resource.data);
+      allow update: if isOwner(userId) &&
+        isValidMemory(request.resource.data) &&
+        resource.data.uid == request.auth.uid;
+      allow delete: if isOwner(userId);
+    }
+
+    // No legacy application collections are exposed by the fresh persistence layer.
+    match /users/{document=**} {
+      allow read, write: if false;
+    }
+    match /chats/{document=**} {
+      allow read, write: if false;
+    }
+    match /images/{document=**} {
+      allow read, write: if false;
+    }
+    match /videos/{document=**} {
+      allow read, write: if false;
+    }
+    match /map_nodes/{document=**} {
+      allow read, write: if false;
     }
   }
 }
