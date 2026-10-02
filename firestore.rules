@@ -56,6 +56,17 @@ service cloud.firestore {
         data.createdAt is timestamp;
     }
 
+    function isValidMemory(data) {
+      return isOwnerAccount() &&
+        data.keys().hasAll(['uid', 'messages', 'summary', 'updatedAt']) &&
+        data.uid == request.auth.uid &&
+        data.messages is list &&
+        data.messages.size() <= 20 &&
+        data.summary is string &&
+        data.summary.size() <= 10000 &&
+        data.updatedAt is timestamp;
+    }
+
     match /skynet4_users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) &&
@@ -86,6 +97,16 @@ service cloud.firestore {
       allow update: if isValidImage(request.resource.data) &&
         resource.data.uid == request.auth.uid;
       allow delete: if isOwnerAccount() && resource.data.uid == request.auth.uid;
+    }
+
+    match /skynet4_ai_memory/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        isValidMemory(request.resource.data);
+      allow update: if isOwner(userId) &&
+        isValidMemory(request.resource.data) &&
+        resource.data.uid == request.auth.uid;
+      allow delete: if isOwner(userId);
     }
 
     // No legacy application collections are exposed by the fresh persistence layer.
