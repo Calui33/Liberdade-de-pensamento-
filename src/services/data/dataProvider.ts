@@ -50,20 +50,20 @@ export interface DataProvider {
 export const dataProvider: DataProvider = {
   watchUser(uid, listener, onError) {
     return onSnapshot(
-      doc(db, "users", uid),
+      doc(db, "skynet4_users", uid),
       (snapshot) => listener(snapshot.exists() ? snapshot.data() as UserRecord : null),
       onError
     );
   },
   createUser(uid, data) {
-    return setDoc(doc(db, "users", uid), { ...data, createdAt: serverTimestamp() });
+    return setDoc(doc(db, "skynet4_users", uid), { ...data, createdAt: serverTimestamp() });
   },
   updateUser(uid, data) {
-    return updateDoc(doc(db, "users", uid), data);
+    return updateDoc(doc(db, "skynet4_users", uid), data);
   },
   watchLatestChat(uid, listener, onError) {
     const q = query(
-      collection(db, "chats"),
+      collection(db, "skynet4_chats"),
       where("uid", "==", uid),
       orderBy("updatedAt", "desc"),
       limit(1)
@@ -86,21 +86,21 @@ export const dataProvider: DataProvider = {
     );
   },
   saveChat(uid, data) {
-    return setDoc(doc(db, "chats", uid), {
+    return setDoc(doc(db, "skynet4_chats", uid), {
       ...data,
       uid,
       updatedAt: serverTimestamp()
     });
   },
   async getImage(id) {
-    const snapshot = await getDoc(doc(db, "images", id));
+    const snapshot = await getDoc(doc(db, "skynet4_images", id));
     return snapshot.exists()
       ? { id: snapshot.id, ...snapshot.data() } as ImageRecord
       : null;
   },
   watchUserImages(uid, listener, onError) {
     const q = query(
-      collection(db, "images"),
+      collection(db, "skynet4_images"),
       where("uid", "==", uid),
       orderBy("createdAt", "desc"),
       limit(20)
@@ -112,7 +112,7 @@ export const dataProvider: DataProvider = {
     );
   },
   async saveImage(data) {
-    const reference = await addDoc(collection(db, "images"), {
+    const reference = await addDoc(collection(db, "skynet4_images"), {
       ...data,
       createdAt: serverTimestamp()
     });
