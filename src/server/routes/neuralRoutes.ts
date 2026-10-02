@@ -2,22 +2,112 @@ import { Router } from "express";
 import type { Content } from "@google/genai";
 import { getNeuralProvider, type NeuralMessage } from "../providers/neuralProvider";
 import { consumeCredits } from "../services/creditsService";
+import { serverDataProvider, type ServerMemoryMessage } from "../providers/serverDataProvider";
 import { publicServerError } from "../utils/publicServerError";
+
+type TextMemory = {
+  role: "user" | "model";
+  text: string;
+};
+
+const contentToMemory = (contents: Content[]): TextMemory[] =>
+  contents
+    .flatMap((content) => {
+      const role = content.role === "model" ? "model" : "user";
+      const text = (content.parts || [])
+        .map((part) => ("text" in part && typeof part.text === "string" ? part.text : ""))
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+      return text ? [{ role, text }] : [];
+    })
+    .slice(-20);
+
+const memoryToContents = (messages: TextMemory[]): Content[] =>
+  messages.map((message) => ({
+    role: message.role,
+    parts: [{ text: message.text }],
+  }));
+
+const extractMemory = (document: { fields?: Record<string, any> } | undefined): TextMemory[] => {
+  const values = document?.fields?.messages?.arrayValue?.values || [];
+  return values
+    .map((item: any) => item?.mapValue?.fields)
+    .map((fields: any) => ({
+      role: fields?.role?.stringValue === "model" ? "model" : "user",
+      text: typeof fields?.text?.stringValue === "string" ? fields.text.stringValue : "",
+    }))
+    .filter((message: TextMemory) => message.text)
+    .slice(-20);
+};
+
+const extractSummary = (document: { fields?: Record<string, any> } | undefined): string =>
+  typeof document?.fields?.summary?.stringValue === "string"
+    ? document.fields.summary.stringValue
+    : "";
+
+const buildMemoryContext = (messages: TextMemory[], summary: string): Content[] => {
+  const context: Content[] = [];
+  if (summary) {
+    context.push({
+      role: "user",
+      parts: [{ text: `[MEMÓRIA PERSISTENTE — resumo]\n${summary}` }],
+    });
+  }
+  if (messages.length) {
+    context.push({
+      role: "user",
+      parts: [{
+        text: `[MEMÓRIA PERSISTENTE — histórico recente]\n${messages
+          .map((message) => `${message.role}: ${message.text}`)
+          .join("\n")}`,
+      }],
+    });
+  }
+  return context;
+};
 
 export function createNeuralRouter() {
   const router = Router();
 
-  // SKYNET4 OMNI-AI NEXO — server-side Gemini bridge.
-  // Personality/configuration is intentionally kept identical to the protected contract.
   router.post("/omni/chat", async (req, res) => {
     try {
       const credit = await consumeCredits(req, 1);
       if (!credit.ok) return res.status(credit.error === "Créditos insuficientes." ? 402 : 400).json(credit);
+
+      const contents = (Array.isArray(req.body?.contents) ? req.body.contents : []) as Content[];
+      const uid = req.firebaseUser?.localId;
+      const token = req.firebaseToken;
+
+      let memoryMessages: TextMemory[] = [];
+      let summary = "";
+      if (uid && token) {
+        const memory = await serverDataProvider.getAiMemory(uid, token);
+        if (memory.status >= 200 && memory.status < 300) {
+          memoryMessages = extractMemory(memory.document);
+          summary = extractSummary(memory.document);
+        } else if (memory.status !== 404) {
+          console.warn("AI memory read failed:", memory.status);
+        }
+      }
+
+      const memoryContext = buildMemoryContext(memoryMessages, summary);
       const text = await getNeuralProvider().omniChat(
-        (Array.isArray(req.body?.contents) ? req.body.contents : []) as Content[],
-        typeof req.body?.runtimeUrl === "string" ? req.body.runtimeUrl : ""
+        contents,
+        typeof req.body?.runtimeUrl === "string" ? req.body.runtimeUrl : "",
+        memoryContext
       );
-      res.json({ text });
+
+      if (uid && token) {
+        const currentMessages = contentToMemory(contents);
+        const nextMessages: ServerMemoryMessage[] = [...memoryMessages, ...currentMessages, { role: "model", text }].slice(-20);
+        const saved = await serverDataProvider.saveAiMemory(uid, token, nextMessages, summary);
+        if (saved.status < 200 || saved.status >= 300) {
+          console.warn("AI memory write failed:", saved.status);
+        }
+      }
+
+      res.json({ text, memory: { persisted: Boolean(uid && token), messages: 20 } });
     } catch (error: unknown) {
       console.error("OMNI neural provider error:", error);
       res.status(500).json(publicServerError("Falha no núcleo neural."));
@@ -51,8 +141,8 @@ export function createNeuralRouter() {
       const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
       res.json({ text: await getNeuralProvider().analyzeImage(base64, prompt) });
     } catch (error: unknown) {
-      console.error("Image analysis failed:", error);
-      res.status(500).json(publicServerError("Image analysis failed."));
+      console.error("Neural analysis failed:", error);
+      res.status(500).json(publicServerError("Neural analysis failed."));
     }
   });
 
