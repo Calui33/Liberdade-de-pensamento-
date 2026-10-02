@@ -107,7 +107,7 @@ export function createNeuralRouter() {
         }
       }
 
-      res.json({ text, memory: { persisted: Boolean(uid && token), messages: 20 } });
+      res.json({ text, memory: { persisted: Boolean(uid && token), messages: uid && token ? Math.min(20, memoryMessages.length + contentToMemory(contents).length + 1) : 0 } });
     } catch (error: unknown) {
       console.error("OMNI neural provider error:", error);
       res.status(500).json(publicServerError("Falha no núcleo neural."));
