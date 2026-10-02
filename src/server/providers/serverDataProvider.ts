@@ -29,14 +29,14 @@ export interface ServerDataProvider {
 
 export const serverDataProvider: ServerDataProvider = {
   async getUser(uid, token) {
-    const response = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
+    const response = await fetch(`${firestoreBase}/skynet4_users/${encodeURIComponent(uid)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return { status: response.status, document: response.ok ? await response.json() as ServerUserDocument : undefined };
   },
 
   async createUser(uid, token, fields) {
-    const response = await fetch(`${firestoreBase}/users/${encodeURIComponent(uid)}`, {
+    const response = await fetch(`${firestoreBase}/skynet4_users/${encodeURIComponent(uid)}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -49,7 +49,7 @@ export const serverDataProvider: ServerDataProvider = {
 
   async updateUserCredits(uid, token, credits, updateTime) {
     const response = await fetch(
-      `${firestoreBase}/users/${encodeURIComponent(uid)}?updateMask.fieldPaths=credits`,
+      `${firestoreBase}/skynet4_users/${encodeURIComponent(uid)}?updateMask.fieldPaths=credits`,
       {
         method: "PATCH",
         headers: {
